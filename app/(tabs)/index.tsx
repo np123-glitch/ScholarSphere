@@ -12,15 +12,15 @@ export default function HomeScreen() {
   const isDarkMode = colorScheme === 'dark';
 
   const handleSend = async () => {
+    console.log("Request to server sent");
     try {
-      const response = await fetch('http://192.168.1.245:5000/chat', {
+      const response = await fetch('http://192.168.1.153:5000/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message: text }),
       });
-      console.log("Request to server sent");
       const result = await response.json();
   
       if (response.ok) {
