@@ -1,146 +1,158 @@
-import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export default function HomeScreen() {
-  const [text, setText] = useState('');
-  const [botResponse, setBotResponse] = useState('');
+export default function IndexPage() {
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
 
-  const handleSend = async () => {
-    console.log("Request to server sent");
-    try {
-      const response = await fetch('http://192.168.1.153:5000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: text }),
-      });
-      const result = await response.json();
-  
-      if (response.ok) {
-        setBotResponse(result.response); // Update bot response
-        setText(''); // Clear the text input
-      } else {
-        console.error('Failed to send message:', result.error || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-  
-
   return (
     <ParallaxScrollView>
-      <ThemedView>
-        <ThemedText type="title" style={styles.title}>
-          Chat Area
+      <ThemedView style={[styles.container, isDarkMode ? styles.containerDark : {}]}>
+        <ThemedText type="title" style={[styles.title, isDarkMode ? { color: '#fff' } : {}]}>
+          Welcome to Scholarsphere
         </ThemedText>
-      </ThemedView>
-      <ThemedView>
-        <View style={[styles.inputContainer, isDarkMode ? styles.inputContainerDark : {}]}>
-          <TextInput
-            style={[styles.textInput, isDarkMode ? styles.textInputDark : {}]}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type your message here"
-            placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, isDarkMode ? styles.sendButtonDark : {}]}
-            onPress={handleSend}>
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
+
+        <ThemedText
+          type="body"
+          style={[styles.description, isDarkMode ? { color: '#ccc' } : {}]}
+        >
+          Scholarsphere is a platform designed to help you create and manage multiple-choice
+          tests on any topic. Whether you're an educator aiming to evaluate your
+          students or a self-learner looking to review material, Scholarsphere makes
+          test creation simple and efficient.
+        </ThemedText>
+
+        <View style={styles.infoContainer}>
+          <ThemedText
+            type="body"
+            style={[styles.infoHeader, isDarkMode ? { color: '#fff' } : {}]}
+          >
+            Key Features:
+          </ThemedText>
+
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Generate custom multiple-choice tests on the fly.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Choose difficulty levels to tailor each exam.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Get instant scoring and feedback after each submission.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Chat with a personalized AI model accustomed to you.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Get instant responses from the AI chat bot.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Have the AI model generate flash cards based on a topic.
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.infoBullet, isDarkMode ? { color: '#ccc' } : {}]}
+          >
+            • Scroll back and forth from the flashcards to make sure you don't forget a thing.
+          </ThemedText>
+
         </View>
-        {botResponse ? (
-          <View style={[styles.responseContainer, isDarkMode ? styles.responseContainerDark : {}]}>
-            <Text style={[styles.responseText, isDarkMode ? styles.responseTextDark : {}]}>
-              {botResponse}
-            </Text>
-          </View>
-        ) : null}
+
+        <ThemedText
+          type="body"
+          style={[
+            styles.footerText,
+            isDarkMode ? { color: '#ccc', borderTopColor: '#666' } : {},
+          ]}
+        >
+          Ready to get started? Simply head over to any of the bottom tabs and begin creating
+          your academic takeover! Scholarsphere is here to make learning more enjoyable
+          and productive for everyone.
+        </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    padding: 24,
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  containerDark: {
+    backgroundColor: '#111',
+  },
   title: {
+    fontSize: 28,
     textAlign: 'center',
     marginVertical: 16,
+    fontWeight: 'bold',
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  description: {
+    fontSize: 16,
+    textAlign: 'justify',
+    marginBottom: 24,
+    lineHeight: 22,
   },
-  inputContainerDark: {
-    backgroundColor: '#333',
-    shadowColor: '#000',
+  infoContainer: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
-  textInput: {
-    flex: 1,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
+  infoHeader: {
+    fontSize: 18,
+    marginBottom: 8,
+    fontWeight: '600',
   },
-  textInputDark: {
-    borderColor: '#555',
-    backgroundColor: '#555',
-    color: '#fff',
+  infoBullet: {
+    marginVertical: 4,
+    fontSize: 16,
+    textAlign: 'justify',
+    lineHeight: 20,
   },
-  sendButton: {
+  footerText: {
+    fontSize: 16,
+    textAlign: 'justify',
+    paddingTop: 16,
+    marginBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+    lineHeight: 22,
+  },
+  ctaButton: {
     backgroundColor: '#007bff',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  sendButtonDark: {
+  ctaButtonDark: {
     backgroundColor: '#0056b3',
   },
-  sendButtonText: {
+  ctaButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  responseContainer: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 8,
-    backgroundColor: '#e9ecef',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  responseContainerDark: {
-    backgroundColor: '#444',
-    shadowColor: '#000',
-  },
-  responseText: {
-    fontSize: 16,
-    color: '#333', // Default text color
-  },
-  responseTextDark: {
-    color: '#fff', // White text in dark mode
   },
 });

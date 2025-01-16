@@ -6,8 +6,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker'; // Ensure this import is from '@react-native-picker/picker'
+import { Picker } from '@react-native-picker/picker';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -76,7 +77,7 @@ export default function FlashcardsScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://192.168.1.153:5000/chat', {
+      const response = await fetch('http://172.20.10.5:5000/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,24 +179,12 @@ export default function FlashcardsScreen() {
           onPress={handleGenerate}
           disabled={loading}
         >
-          <Text style={styles.generateButtonText}>
-            {loading ? 'Generating...' : 'Generate'}
-          </Text>
+          {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Generate Test</Text>
+                    )}
         </TouchableOpacity>
-
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <Progress.Bar
-              indeterminate
-              width={200}
-              color="#007bff"
-              borderColor={isDarkMode ? '#555' : '#ddd'}
-            />
-            <Text style={[styles.loadingText, isDarkMode ? { color: '#fff' } : {}]}>
-              Generating flashcards...
-            </Text>
-          </View>
-        )}
       </ThemedView>
 
       {flashcards.length > 0 && (
@@ -378,6 +367,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#218838',
   },
   navButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

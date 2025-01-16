@@ -42,19 +42,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="chatarea"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Chat Area',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="message" color={color} />,
         }}
       />
       <Tabs.Screen
         name="flashcards"
         options={{
           title: 'Flashcards',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="eraser" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tests"
+        options={{
+          title: 'Testing',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="clipboard" color={color} />,
         }}
       />
+
     </Tabs>
   );
 }

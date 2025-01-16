@@ -73,7 +73,7 @@ def upload_file():
             os.remove(filepath)
 
             return render_template('upload.html', message="File uploaded and processed successfully.", response=response)
-    
+
     return render_template('upload.html')
 
 @app.route('/chat', methods=['POST'])
