@@ -6,14 +6,29 @@ from upload import upload
 from gen_response import send_message
 from pinecone import Pinecone
 from flask_cors import CORS
-
+import jwt
+from functools import wraps
+from datetime import datetime, timedelta
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
+
+# Load Secret Key from Environment Variable
+SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
+
 # Initialize Pinecone Assistant
 pc = Pinecone(api_key="pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54")
 assistant = pc.assistant.Assistant(assistant_name="example-assistant")
+
+# Dummy user data for demonstration (Replace with database lookup)
+USERS = {
+    "john_doe": {
+        "password": "password123",  # In production, passwords should be hashed!
+        "email": "john.doe@example.com",
+        "roles": ["user"],
+    }
+}
 
 # Helper functions for file handling and OCR processing
 def remove_non_utf8(text):
@@ -46,12 +61,47 @@ def process_pdf(filename):
 
     return output_text_file
 
+# JWT Decorator for Protecting Routes
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        # JWT is expected in the Authorization header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0] == 'Bearer':
+                token = parts[1]
+
+        if not token:
+            print('Token is missing!')
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            # Decode the token
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            current_user = data['sub']  # Extracting 'sub' as current_user
+        except jwt.ExpiredSignatureError:
+            print('Token has expired!')
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            print('Invalid token!')
+            return jsonify({'message': 'Invalid token!'}), 401
+
+        # Proceed to the wrapped function, passing current_user
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
+
+# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
+@token_required
+def upload_file(current_user):
     if request.method == 'POST':
         file = request.files['file']
         if file and file.filename.endswith('.pdf'):
@@ -77,7 +127,8 @@ def upload_file():
     return render_template('upload.html')
 
 @app.route('/chat', methods=['POST'])
-def chat():
+@token_required
+def chat(current_user):
     if request.method == 'POST':
         data = request.get_json()  # Parse JSON data
         user_message = data.get('message', '')
@@ -86,6 +137,34 @@ def chat():
         return jsonify({'response': bot_response}), 200
 
     return jsonify({'error': 'Invalid request method'}), 405
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json()
+        loginId = data.get('loginId', '')
+        password = data.get('password', '')
+
+        # Validate user credentials
+        user = USERS.get(loginId)
+        if not user or user['password'] != password:
+            print('invalid')
+            return jsonify({'message': 'Invalid login credentials!'}), 401
+
+        # Generate JWT Token
+        token_payload = {
+            'iss': 'https://scholarsphere.anythingnew.today',  # Issuer
+            'sub': loginId,                   # Subject (user identifier)
+            'exp': datetime.utcnow() + timedelta(hours=1),  # Expiration Time
+            'iat': datetime.utcnow(),         # Issued At
+            'jti': os.urandom(16).hex(),      # JWT ID
+        }
+
+        token = jwt.encode(token_payload, SECRET_KEY, algorithm='HS256')
+
+        return jsonify({'token': token}), 200
+
+    return jsonify({'message': 'Invalid request method'}), 405
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

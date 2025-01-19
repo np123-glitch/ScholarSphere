@@ -4,20 +4,24 @@ import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import Config from '@/components/Config';
+import { useAuthSession } from '@/components/AuthProvider';
 
 export default function HomeScreen() {
+  const { token, isLoading: authLoading } = useAuthSession();
   const [text, setText] = useState('');
   const [botResponse, setBotResponse] = useState('');
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
-
+  const baseUrl = Config.API_BASE_URL;
   const handleSend = async () => {
     console.log("Request to server sent");
     try {
-      const response = await fetch('http://172.20.10.5:5000/chat', {
+      const response = await fetch(baseUrl + '/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token?.current}`,
         },
         body: JSON.stringify({ message: text }),
       });
@@ -39,7 +43,7 @@ export default function HomeScreen() {
     <ParallaxScrollView>
       <ThemedView>
         <ThemedText type="title" style={styles.title}>
-          Chat Area
+          Chat with notes
         </ThemedText>
       </ThemedView>
       <ThemedView>

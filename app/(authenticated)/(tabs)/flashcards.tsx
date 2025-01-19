@@ -13,9 +13,11 @@ import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import * as Progress from 'react-native-progress';
+import Config from '@/components/Config';
+import { useAuthSession } from '@/components/AuthProvider';
 
 export default function FlashcardsScreen() {
+  const { token, isLoading: authLoading } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [count, setCount] = useState(5);
   const [flashcards, setFlashcards] = useState([]);
@@ -27,6 +29,8 @@ export default function FlashcardsScreen() {
 
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
+  const baseUrl = Config.API_BASE_URL;
+
 
   // 3D flip animation value
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -77,10 +81,11 @@ export default function FlashcardsScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://172.20.10.5:5000/chat', {
+      const response = await fetch(baseUrl + '/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token.current}`,
         },
         body: JSON.stringify({
           message: `Generate ${count} flashcards about '${topic}'. Each flashcard must be on its own line, using the exact format: [question]:[answer]. For example: [What is a tree?]:[A perennial plant with a trunk, branches, and leaves]. Do not include any numbering, bullet points, or extra text. Ensure there are no spaces before or after the colon (':').`,
@@ -182,7 +187,7 @@ export default function FlashcardsScreen() {
           {loading ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={styles.buttonText}>Generate Test</Text>
+                      <Text style={styles.buttonText}>Generate Flashcards</Text>
                     )}
         </TouchableOpacity>
       </ThemedView>

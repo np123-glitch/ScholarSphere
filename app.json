@@ -27,8 +27,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/scholarsphere.png",
-          "imageWidth": 200,
+          "image": "./assets/images/adaptive-icon.png",
+          "imageWidth": 1024,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }

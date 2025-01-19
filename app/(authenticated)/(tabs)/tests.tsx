@@ -12,6 +12,8 @@ import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import Config from '@/components/Config';
+import { useAuthSession } from '@/components/AuthProvider';
 
 type TestQuestion = {
   question: string;
@@ -20,6 +22,7 @@ type TestQuestion = {
 };
 
 export default function TestFlashcardScreen() {
+  const { token, isLoading: authLoading } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<number>(5);
   const [numQuestions, setNumQuestions] = useState<number>(5);
@@ -31,6 +34,7 @@ export default function TestFlashcardScreen() {
 
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
+  const baseUrl = Config.API_BASE_URL;
 
   const handleGenerateTest = async () => {
     setLoading(true);
@@ -48,9 +52,11 @@ export default function TestFlashcardScreen() {
         [question:optionA:optionB:optionC:optionD:correctAnswer]
       `;
 
-      const response = await fetch('http://172.20.10.5:5000/chat', {
+      const response = await fetch(baseUrl + '/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token.current}`, },
         body: JSON.stringify({ message }),
       });
 
@@ -65,7 +71,7 @@ export default function TestFlashcardScreen() {
         const parsedQuestions = lines
           .map((qLine: string) => {
             // Remove square brackets
-            const innerText = qLine.replace(/^\[|\]$/g, '');
+            const innerText = qLine.replace(/^\d+\.\s*\[|\]$/g, '');
             // Split on ':'
             const parts = innerText.split(':');
 
@@ -229,8 +235,11 @@ export default function TestFlashcardScreen() {
                     style={[
                       styles.optionButton,
                       isDarkMode ? styles.optionButtonDark : {},
+                      // Highlight the selected option if not submitted
                       isSelected && !isSubmitted ? styles.optionSelected : {},
+                      // Highlight the correct answer in green after submission
                       isCorrect ? styles.optionCorrect : {},
+                      // Highlight the wrong selection in red after submission
                       isWrongSelection ? styles.optionWrong : {},
                     ]}
                     onPress={() => handleSelectAnswer(key as keyof TestQuestion['options'])}
