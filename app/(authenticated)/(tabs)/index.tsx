@@ -70,7 +70,7 @@ export default function IndexPage() {
           type="title"
           style={[styles.title, isDarkMode ? { color: '#fff' } : {}]}
         >
-          Welcome to Scholarsphere
+          Welcome to ScholarSphere
         </ThemedText>
 
         {/* Description */}

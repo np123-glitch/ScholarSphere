@@ -70,6 +70,9 @@ export default function HomeScreen() {
       </ThemedView>
       
       <ThemedView>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+          Example: "Help me understand Absolutism." or "How did Absolutism start?"
+        </ThemedText>
         <View style={[styles.inputContainer, isDarkMode ? styles.inputContainerDark : {}]}>
           <TextInput
             style={[styles.textInput, isDarkMode ? styles.textInputDark : {}]}

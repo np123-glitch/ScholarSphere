@@ -336,6 +336,9 @@ export default function TestFlashcardScreen() {
         <ThemedText type="title" style={styles.title}>
           Multiple-Choice Exam
         </ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+          Example: "Absolutism"
+        </ThemedText>
 
         {/* Topic Input with Recent Topics Dropdown */}
         <View style={styles.inputContainer}>
@@ -741,5 +744,12 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  subtitle: {
+    textAlign: 'center',
+    marginVertical: 0,
+    paddingBottom: 16,
+    fontSize: 16, // Added for better readability
+    color: '#666', // Default color
   },
 });

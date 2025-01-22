@@ -267,6 +267,9 @@ export default function FlashcardsScreen() {
         <ThemedText type="title" style={styles.title}>
           Flashcards Generator
         </ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+                  Example: "Absolutism keywords" or "Beginning of Absolutism"
+        </ThemedText>
         <TextInput
           style={[styles.input, isDarkMode ? styles.inputDark : {}]}
           value={topic}
@@ -581,5 +584,12 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: '#dc3545',
     fontWeight: 'bold',
+  },
+  subtitle: {
+    textAlign: 'center',
+    marginVertical: 0,
+    paddingBottom: 16,
+    fontSize: 16, // Added for better readability
+    color: '#666', // Default color
   },
 });

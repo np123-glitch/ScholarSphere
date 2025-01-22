@@ -31,10 +31,25 @@ USERS = {
         "realname": "Josh Cote",
         "age": 15,
         "gender": "male",
+    },
+    "jerky_s": {
+        "password": "jerkywjerky",  # In production, passwords should be hashed!
+        "email": "jane.doe@example.com",
+        "roles": ["user"],
+        "realname": "Jeremiah Sacrafamilia",
+        "age": 15,
+        "gender": "male",
+    },
+    "testing": {
+        "password": "testing",  # In production, passwords should be hashed!
+        "email": "jane.doe@example.com",
+        "roles": ["user"],
+        "realname": "Testing",
+        "age": 15,
+        "gender": "male",
     }
 }
 
-# Helper functions for file handling and OCR processing
 def remove_non_utf8(text):
     return text.encode("utf-8", "ignore").decode("utf-8")
 
@@ -85,7 +100,7 @@ def token_required(f):
         try:
             # Decode the token
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            current_user = data['name']
+            current_user = data['sub']
         except jwt.ExpiredSignatureError:
             print('Token has expired!')
             return jsonify({'message': 'Token has expired!'}), 401
