@@ -1,6 +1,16 @@
-import React, { useRef } from 'react';
-import { StyleSheet, View, Button, Text, TouchableOpacity } from 'react-native';
-import DrawerLayout from 'react-native-gesture-handler/DrawerLayout';
+// src/screens/IndexPage.tsx
+
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Switch,
+  Image,
+  Animated,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthSession } from "@/components/AuthProvider";
 
@@ -9,152 +19,116 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
+import { MaterialIcons } from '@expo/vector-icons'; // Importing MaterialIcons
+import { Ionicons } from '@expo/vector-icons'; // Importing Ionicons
+
 export default function IndexPage() {
   const router = useRouter();
-  const colorScheme = useColorScheme() || 'light';
-  const isDarkMode = colorScheme === 'dark';
+  const systemColorScheme = useColorScheme() || 'light';
+  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
   const { signOut, token } = useAuthSession();
 
-  // Reference to control the drawer programmatically
-  const drawerRef = useRef<DrawerLayout>(null);
-
-  // Style used for the drawer background, matching dark/light mode
-  const drawerBackgroundStyle = {
-    backgroundColor: isDarkMode ? '#111' : '#fff',
-  };
-
-  // Text color for drawer headers or other text
-  const drawerTextStyle = {
-    color: isDarkMode ? '#fff' : '#111',
-  };
+  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
 
   const logout = () => {
     signOut();
   };
 
-  // Common button color for the drawer's <Button> elements
-  const buttonColor = isDarkMode ? '#aaa' : '#007bff';
-
-  // Content that appears in the slide-out drawer
-  const renderDrawerContent = () => (
-    <View style={[styles.drawerContainer, drawerBackgroundStyle]}>
-      <View style={styles.drawerContent}>
-        <Text style={[styles.drawerHeader, drawerTextStyle]}>
-          More options
-        </Text>
-
-        {/* Navigation Buttons */}
-        <View style={styles.drawerButtonContainer}>
-          <Button
-            title="Chat Area"
-            color={buttonColor}
-            onPress={() => {
-              drawerRef.current?.closeDrawer();
-              router.push('/chatarea');
-            }}
-          />
-        </View>
-        <View style={styles.drawerButtonContainer}>
-          <Button
-            title="Flashcards"
-            color={buttonColor}
-            onPress={() => {
-              drawerRef.current?.closeDrawer();
-              router.push('/flashcards');
-            }}
-          />
-        </View>
-        <View style={styles.drawerButtonContainer}>
-          <Button
-            title="Tests"
-            color={buttonColor}
-            onPress={() => {
-              drawerRef.current?.closeDrawer();
-              router.push('/tests');
-            }}
-          />
-        </View>
-        <View style={styles.drawerButtonContainer}>
-          <Button
-            title="Logout"
-            color={buttonColor}
-            onPress={() => {
-              drawerRef.current?.closeDrawer();
-              logout(); // Correctly call the logout function
-            }}
-          />
-        </View>
-      </View>
-    </View>
-  );
+  // Toggle theme handler
+  const toggleTheme = () => {
+    setIsDarkMode((prevMode) => !prevMode);
+  };
 
   return (
-    <DrawerLayout
-      ref={drawerRef}
-      drawerWidth={280}
-      drawerPosition="left"
-      renderNavigationView={renderDrawerContent}
-    >
-      {/* Main content (with ParallaxScrollView, etc.) */}
-      <ParallaxScrollView>
-        <ThemedView
-          style={[styles.container, isDarkMode ? styles.containerDark : {}]}
+      <ThemedView
+        style={[
+          styles.container,
+          isDarkMode ? styles.containerDark : styles.containerLight,
+        ]}
+      >
+        {/* Header with Profile Icon */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.profileIcon}
+            onPress={() => {
+              console.log('Profile icon pressed');
+              router.navigate('../../profile');
+            }}
+            accessibilityLabel="Open Profile"
+          >
+            <Ionicons
+              name="person-circle"
+              size={30}
+              color={isDarkMode ? '#fff' : '#000'}
+            />
+          </TouchableOpacity>
+        </View>
+
+
+        {/* Welcome Message */}
+        <ThemedText
+          type="title"
+          style={[styles.title, isDarkMode ? { color: '#fff' } : {}]}
         >
-          <ThemedText
-            type="title"
-            style={[styles.title, isDarkMode ? { color: '#fff' } : {}]}
-          >
-            Welcome to Scholarsphere
-          </ThemedText>
+          Welcome to Scholarsphere
+        </ThemedText>
 
-          <ThemedText
-            type="body"
-            style={[styles.description, isDarkMode ? { color: '#ccc' } : {}]}
-          >
-            Scholarsphere is a platform designed to help you create and manage
-            school notes and material. You can make flashcards, generate multiple
-            choice questions, and have a personal AI companion to help you in your
-            academic success!
-          </ThemedText>
+        {/* Description */}
+        <ThemedText
+          type="body"
+          style={[styles.description, isDarkMode ? { color: '#ccc' } : {}]}
+        >
+          Your all-in-one platform for creating and managing school notes and materials.
+          Explore flashcards, generate multiple-choice questions, and interact with your personal AI companion to enhance your academic journey!
+        </ThemedText>
 
-        
-          {/* Custom bounding-box button to open the drawer */}
-          <View style={[styles.openDrawerButtonContainer, isDarkMode ? styles.openDrawerButtonContainerDark : {}]}>
-            <TouchableOpacity
-              style={[styles.openDrawerButton, isDarkMode ? styles.openDrawerButtonDark : {}]}
-              onPress={() => drawerRef.current?.openDrawer()}
-            >
-              <Text style={styles.openDrawerButtonText}>☰</Text>
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
-      </ParallaxScrollView>
-    </DrawerLayout>
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
+            onPress={() => router.push('/chatarea')}
+          >
+            <MaterialIcons name="chat" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.actionButtonText}>Get Started</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Todo List Button */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
+            onPress={() => router.navigate('../../todo')}
+          >
+            <MaterialIcons name="check-box" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.actionButtonText}>Todo List</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Upload Documents Button */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
+            onPress={() => router.navigate('../../upload')}
+          >
+            <MaterialIcons name="upload-file" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.actionButtonText}>Upload Documents</Text>
+          </TouchableOpacity>
+        </View>
+        {/* Feedback Button */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
+            onPress={() => router.navigate('../../feedback')}
+          >
+            <MaterialIcons name="feedback" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.actionButtonText}>Feedback</Text>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  //
-  // ------------------- Drawer Layout styles -------------------
-  //
-  drawerContainer: {
-    flex: 1,
-    marginTop: 50,
-  },
-  drawerContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  drawerHeader: {
-    fontSize: 20,
-    marginBottom: 20,
-    fontWeight: '600',
-  },
-  drawerButtonContainer: {
-    marginBottom: 12,
-  },
-
   //
   // ------------------- Main page styles -------------------
   //
@@ -162,9 +136,30 @@ const styles = StyleSheet.create({
     padding: 24,
     flex: 1,
     justifyContent: 'flex-start',
+    paddingTop: 50,
+  },
+  containerLight: {
+    backgroundColor: '#f5f5f5',
   },
   containerDark: {
-    backgroundColor: '#111',
+    backgroundColor: '#1e1e1e',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 16,
+  },
+  profileIcon: {
+    padding: 5,
+  },
+  bannerContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 150,
   },
   title: {
     fontSize: 28,
@@ -174,73 +169,115 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    textAlign: 'justify',
+    textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
+    paddingHorizontal: 10,
   },
-  infoContainer: {
-    marginBottom: 24,
-    paddingHorizontal: 4,
+  actionButtonsContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  infoHeader: {
-    fontSize: 18,
-    marginBottom: 8,
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007bff',
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    width: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5, // For Android shadow
+    transitionProperty: 'background-color',
+    transitionDuration: '300ms',
+  },
+  actionButtonDark: {
+    backgroundColor: '#0056b3',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
+    marginLeft: 12,
   },
-  infoBullet: {
-    marginVertical: 4,
-    fontSize: 16,
-    textAlign: 'justify',
-    lineHeight: 20,
+  buttonIcon: {
+    marginLeft: 12,
   },
-  footerText: {
+  //
+  // ------------------- Footer styles -------------------
+  //
+  footer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  logoutButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+    backgroundColor: '#ff4d4d',
+  },
+  logoutButtonText: {
+    color: '#fff',
     fontSize: 16,
-    textAlign: 'justify',
-    paddingTop: 16,
-    marginBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc',
-    lineHeight: 22,
+    fontWeight: '600',
   },
 
   //
-  // ------------------- Custom bounding-box button styles -------------------
+  // ------------------- Modal styles -------------------
   //
-  openDrawerButtonContainer: {
-    // This container creates the bounding box (card-like) around the button
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalContentLight: {
+    backgroundColor: '#fff',
+  },
+  modalContentDark: {
+    backgroundColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  modalTextLight: {
+    color: '#000',
+  },
+  modalTextDark: {
+    color: '#fff',
+  },
+  toggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 10,
+    marginBottom: 20,
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 10,
   },
-  openDrawerButtonContainerDark: {
-    backgroundColor: '#333',
-    shadowColor: '#000',
+  toggleLabel: {
+    fontSize: 18,
   },
-  openDrawerButton: {
+  closeButton: {
     backgroundColor: '#007bff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
     borderRadius: 8,
-    alignItems: 'center',
-    flex: 1,
-    // flex: 1 ensures the button expands horizontally to fill the bounding box
+    marginTop: 10,
   },
-  openDrawerButtonDark: {
-    backgroundColor: '#0056b3',
-  },
-  openDrawerButtonText: {
+  closeButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: '600',
   },
 });

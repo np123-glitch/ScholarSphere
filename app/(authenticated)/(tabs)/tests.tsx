@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// src/screens/TestFlashcardScreen.tsx
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +8,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  Alert,
+  ScrollView,
+  FlatList,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -21,6 +28,15 @@ type TestQuestion = {
   correctAnswer: keyof TestQuestion['options'];
 };
 
+type TestSet = {
+  id: string;
+  topic: string;
+  difficulty: number;
+  numQuestions: number;
+  createdAt: string;
+  questions: TestQuestion[];
+};
+
 export default function TestFlashcardScreen() {
   const { token, isLoading: authLoading } = useAuthSession();
   const [topic, setTopic] = useState('');
@@ -28,20 +44,98 @@ export default function TestFlashcardScreen() {
   const [numQuestions, setNumQuestions] = useState<number>(5);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({});
+  const [userAnswers, setUserAnswers] = useState<{ [key: number]: keyof TestQuestion['options'] }>({});
   const [loading, setLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [savedTests, setSavedTests] = useState<TestSet[]>([]);
+  const [selectedSavedTest, setSelectedSavedTest] = useState<TestSet | null>(null);
+
+  const [recentTopics, setRecentTopics] = useState<string[]>([]);
+  const [showRecentTopics, setShowRecentTopics] = useState<boolean>(false);
 
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
   const baseUrl = Config.API_BASE_URL;
 
+  // Load saved tests and recent topics when component mounts
+  useEffect(() => {
+    loadSavedTests();
+    loadRecentTopics();
+  }, []);
+
+  // Function to load saved tests from AsyncStorage
+  const loadSavedTests = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@test_sets');
+      if (jsonValue != null) {
+        const sets: TestSet[] = JSON.parse(jsonValue);
+        setSavedTests(sets);
+      }
+    } catch (e) {
+      console.error('Failed to load test sets:', e);
+    }
+  };
+
+  // Function to save test sets to AsyncStorage
+  const saveTestSets = async (sets: TestSet[]) => {
+    try {
+      const jsonValue = JSON.stringify(sets);
+      await AsyncStorage.setItem('@test_sets', jsonValue);
+    } catch (e) {
+      console.error('Failed to save test sets:', e);
+    }
+  };
+
+  // Function to load recent topics from AsyncStorage
+  const loadRecentTopics = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@recent_topics');
+      if (jsonValue != null) {
+        const topics: string[] = JSON.parse(jsonValue);
+        setRecentTopics(topics);
+      }
+    } catch (e) {
+      console.error('Failed to load recent topics:', e);
+    }
+  };
+
+  // Function to save recent topics to AsyncStorage
+  const saveRecentTopics = async (topics: string[]) => {
+    try {
+      const jsonValue = JSON.stringify(topics);
+      await AsyncStorage.setItem('@recent_topics', jsonValue);
+    } catch (e) {
+      console.error('Failed to save recent topics:', e);
+    }
+  };
+
+  // Function to add a topic to recent topics
+  const addToRecentTopics = async (newTopic: string) => {
+    let updatedTopics = [...recentTopics];
+    // Remove the topic if it already exists
+    updatedTopics = updatedTopics.filter((t) => t.toLowerCase() !== newTopic.toLowerCase());
+    // Add the new topic to the front
+    updatedTopics.unshift(newTopic);
+    // Limit to 10 recent topics
+    if (updatedTopics.length > 10) {
+      updatedTopics = updatedTopics.slice(0, 10);
+    }
+    setRecentTopics(updatedTopics);
+    await saveRecentTopics(updatedTopics);
+  };
+
   const handleGenerateTest = async () => {
+    if (!topic.trim()) {
+      Alert.alert('Validation Error', 'Please enter a topic.');
+      return;
+    }
+
     setLoading(true);
     setIsSubmitted(false);
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
+    setSelectedSavedTest(null); // Reset selected saved test
 
     try {
       // Prompt for your backend
@@ -56,7 +150,8 @@ export default function TestFlashcardScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token.current}`, },
+          'Authorization': `Bearer ${token.current}`,
+        },
         body: JSON.stringify({ message }),
       });
 
@@ -68,9 +163,9 @@ export default function TestFlashcardScreen() {
           .map((line: string) => line.trim())
           .filter(Boolean);
 
-        const parsedQuestions = lines
+        const parsedQuestions: TestQuestion[] = lines
           .map((qLine: string) => {
-            // Remove square brackets
+            // Remove square brackets and numbering if present
             const innerText = qLine.replace(/^\d+\.\s*\[|\]$/g, '');
             // Split on ':'
             const parts = innerText.split(':');
@@ -78,7 +173,10 @@ export default function TestFlashcardScreen() {
             // Expect 6 parts: question, A, B, C, D, correctAnswer
             if (parts.length < 6) return null;
             const [questionText, optA, optB, optC, optD, rawCorrect] = parts;
-            const correctAnswer = rawCorrect.trim().toUpperCase() as 'A' | 'B' | 'C' | 'D';
+            const correctAnswer = rawCorrect.trim().toUpperCase() as keyof TestQuestion['options'];
+
+            // Validate correctAnswer
+            if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) return null;
 
             return {
               question: questionText.trim(),
@@ -94,11 +192,33 @@ export default function TestFlashcardScreen() {
           .filter(Boolean) as TestQuestion[];
 
         setQuestions(parsedQuestions);
+        setCurrentQuestionIndex(0);
+        setUserAnswers({});
+        setIsSubmitted(false);
+
+        // Save the generated test as a new set
+        const newSet: TestSet = {
+          id: Date.now().toString(),
+          topic: topic.trim(),
+          difficulty,
+          numQuestions,
+          createdAt: new Date().toISOString(),
+          questions: parsedQuestions,
+        };
+
+        const updatedSets = [newSet, ...savedTests];
+        setSavedTests(updatedSets);
+        await saveTestSets(updatedSets);
+
+        // Add the topic to recent topics
+        await addToRecentTopics(newSet.topic);
       } else {
         console.error('Failed to generate test:', data.error || 'Unknown error');
+        Alert.alert('Generation Error', data.error || 'Failed to generate test.');
       }
     } catch (error) {
       console.error('Error generating test:', error);
+      Alert.alert('Error', 'An unexpected error occurred while generating the test.');
     } finally {
       setLoading(false);
     }
@@ -148,6 +268,60 @@ export default function TestFlashcardScreen() {
     );
   };
 
+  // Handle selecting a saved test
+  const handleSelectSavedTest = (set: TestSet) => {
+    setSelectedSavedTest(set);
+    setQuestions(set.questions);
+    setCurrentQuestionIndex(0);
+    setUserAnswers({});
+    setIsSubmitted(false);
+  };
+
+  // Handle deleting a saved test
+  const handleDeleteSavedTest = (setId: string) => {
+    Alert.alert(
+      'Delete Test Set',
+      'Are you sure you want to delete this test set?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const updatedSets = savedTests.filter((set) => set.id !== setId);
+            setSavedTests(updatedSets);
+            await saveTestSets(updatedSets);
+            // If the deleted set was selected, reset the current test
+            if (selectedSavedTest?.id === setId) {
+              setSelectedSavedTest(null);
+              setQuestions([]);
+              setCurrentQuestionIndex(0);
+              setUserAnswers({});
+              setIsSubmitted(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle selecting a recent topic
+  const handleSelectRecentTopic = (selectedTopic: string) => {
+    setTopic(selectedTopic);
+    setShowRecentTopics(false);
+  };
+
+  // Handle focus on topic TextInput
+  const handleFocusTopic = () => {
+    setShowRecentTopics(true);
+  };
+
+  // Handle blur on topic TextInput
+  const handleBlurTopic = () => {
+    // Delay hiding to allow onPress event on recent topics to register
+    setTimeout(() => setShowRecentTopics(false), 100);
+  };
+
   // Current question or default fallback
   const currentQuestion = questions[currentQuestionIndex] || {
     question: '',
@@ -163,14 +337,33 @@ export default function TestFlashcardScreen() {
           Multiple-Choice Exam
         </ThemedText>
 
-        {/* Topic Input */}
-        <TextInput
-          style={[styles.input, isDarkMode ? styles.inputDark : {}]}
-          value={topic}
-          onChangeText={setTopic}
-          placeholder="Enter topic"
-          placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
-        />
+        {/* Topic Input with Recent Topics Dropdown */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, isDarkMode ? styles.inputDark : {}]}
+            value={topic}
+            onChangeText={setTopic}
+            placeholder="Enter topic"
+            placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
+            onFocus={handleFocusTopic}
+            onBlur={handleBlurTopic}
+          />
+          {showRecentTopics && recentTopics.length > 0 && (
+            <View style={[styles.recentTopicsContainer, isDarkMode ? styles.recentTopicsContainerDark : {}]}>
+              {recentTopics.map((t, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.recentTopicItem}
+                  onPress={() => handleSelectRecentTopic(t)}
+                >
+                  <Text style={[styles.recentTopicText, isDarkMode ? { color: '#fff' } : {}]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Difficulty Picker */}
         <Picker
@@ -207,6 +400,45 @@ export default function TestFlashcardScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Saved Tests Section */}
+        <ThemedView style={styles.savedSection}>
+          <ThemedText type="subtitle" style={styles.savedTitle}>
+            Saved Test Sets
+          </ThemedText>
+          {savedTests.length === 0 ? (
+            <Text style={[styles.noSavedText, isDarkMode ? { color: '#fff' } : {}]}>
+              No saved test sets.
+            </Text>
+          ) : (
+            savedTests.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.savedSetItem,
+                  isDarkMode ? styles.savedSetItemDark : {},
+                ]}
+                onPress={() => handleSelectSavedTest(item)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.savedSetTitle, isDarkMode ? { color: '#fff' } : {}]}>
+                    {item.topic}
+                  </Text>
+                  <Text style={[styles.savedSetDetails, isDarkMode ? { color: '#ccc' } : {}]}>
+                    Difficulty: {item.difficulty} • {item.numQuestions} questions •{' '}
+                    {new Date(item.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleDeleteSavedTest(item.id)}
+                  style={styles.deleteButton}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))
+          )}
+        </ThemedView>
+
         {/* Exam Section */}
         {questions.length > 0 && (
           <View style={styles.testContainer}>
@@ -215,7 +447,7 @@ export default function TestFlashcardScreen() {
             </Text>
 
             {/* Question Text */}
-            <View style={styles.questionContainer}>
+            <View style={[styles.questionContainer, isDarkMode ? styles.questionContainerDark : {}]}>
               <Text style={[styles.questionText, { color: isDarkMode ? '#fff' : '#000' }]}>
                 {currentQuestion.question}
               </Text>
@@ -303,27 +535,62 @@ export default function TestFlashcardScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 0,
+    padding: 15,
+    marginBottom: 16,
   },
   title: {
     textAlign: 'center',
     marginVertical: 16,
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  inputContainer: {
+    marginHorizontal: 16,
+    position: 'relative',
   },
   input: {
-    marginBottom: 16,
     padding: 12,
     borderRadius: 8,
     borderColor: '#ddd',
     borderWidth: 1,
     backgroundColor: '#f0f0f0',
+    zIndex: 1,
   },
   inputDark: {
     borderColor: '#555',
     backgroundColor: '#555',
     color: '#fff',
   },
+  recentTopicsContainer: {
+    position: 'absolute',
+    top: 50, // Adjust based on TextInput height
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    maxHeight: 150,
+    zIndex: 2,
+  },
+  recentTopicsContainerDark: {
+    backgroundColor: '#444',
+    borderColor: '#555',
+  },
+  recentTopicItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  recentTopicItemDark: {
+    borderBottomColor: '#555',
+  },
+  recentTopicText: {
+    fontSize: 16,
+  },
   picker: {
     marginBottom: 16,
+    marginHorizontal: 16,
   },
   pickerDark: {
     color: '#fff',
@@ -333,6 +600,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    marginHorizontal: 16,
     marginBottom: 16,
   },
   buttonGenerateDark: {
@@ -343,9 +611,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  savedSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  savedTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  noSavedText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  savedSetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    marginBottom: 8,
+  },
+  savedSetItemDark: {
+    backgroundColor: '#333',
+  },
+  savedSetTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  savedSetDetails: {
+    fontSize: 14,
+    color: '#666',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  deleteButtonText: {
+    color: '#dc3545',
+    fontWeight: 'bold',
+  },
   testContainer: {
     marginTop: 16,
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   counterText: {
     fontSize: 16,
@@ -357,10 +668,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#000', // Change to black
+    backgroundColor: '#f8f9fa',
     width: '100%',
   },
-  
+  questionContainerDark: {
+    backgroundColor: '#555',
+  },
   questionText: {
     fontSize: 18,
     textAlign: 'center',
@@ -395,12 +708,14 @@ const styles = StyleSheet.create({
   navButtonsContainer: {
     flexDirection: 'row',
     marginTop: 8,
+    marginBottom: 16,
   },
   navButton: {
     backgroundColor: '#17a2b8',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 8,
+    paddingBottom: 12,
   },
   navButtonDark: {
     backgroundColor: '#138496',
@@ -414,6 +729,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffc107',
     alignItems: 'center',
     borderRadius: 8,
+    width: '100%',
   },
   buttonSubmitDark: {
     backgroundColor: '#e0a800',

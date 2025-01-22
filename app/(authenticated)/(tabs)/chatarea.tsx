@@ -1,5 +1,15 @@
+// src/screens/HomeScreen.tsx
+
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { 
+  View, 
+  TextInput, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert 
+} from 'react-native';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -8,15 +18,24 @@ import Config from '@/components/Config';
 import { useAuthSession } from '@/components/AuthProvider';
 
 export default function HomeScreen() {
+  const [loading, setLoading] = useState(false);
   const { token, isLoading: authLoading } = useAuthSession();
   const [text, setText] = useState('');
   const [botResponse, setBotResponse] = useState('');
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
   const baseUrl = Config.API_BASE_URL;
+
   const handleSend = async () => {
-    console.log("Request to server sent");
+    if (!text.trim()) {
+      Alert.alert('Validation Error', 'Please enter a message.');
+      return;
+    }
+
+    setLoading(true); // Start loading
+
     try {
+      console.log("Request to server sent");
       const response = await fetch(baseUrl + '/chat', {
         method: 'POST',
         headers: {
@@ -32,20 +51,24 @@ export default function HomeScreen() {
         setText(''); // Clear the text input
       } else {
         console.error('Failed to send message:', result.error || 'Unknown error');
+        Alert.alert('Error', result.error || 'Failed to send message.');
       }
     } catch (error) {
       console.error('Error:', error);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setLoading(false); // End loading
     }
   };
-  
 
   return (
     <ParallaxScrollView>
       <ThemedView>
         <ThemedText type="title" style={styles.title}>
-          Chat with notes
+          Chat with Notes
         </ThemedText>
       </ThemedView>
+      
       <ThemedView>
         <View style={[styles.inputContainer, isDarkMode ? styles.inputContainerDark : {}]}>
           <TextInput
@@ -54,11 +77,18 @@ export default function HomeScreen() {
             onChangeText={setText}
             placeholder="Type your message here"
             placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
+            multiline 
           />
           <TouchableOpacity
             style={[styles.sendButton, isDarkMode ? styles.sendButtonDark : {}]}
-            onPress={handleSend}>
-            <Text style={styles.sendButtonText}>Send</Text>
+            onPress={handleSend}
+            disabled={loading} // Disable button while loading
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.sendButtonText}>Send</Text> // Corrected style
+            )}
           </TouchableOpacity>
         </View>
         
@@ -78,6 +108,15 @@ const styles = StyleSheet.create({
   title: {
     textAlign: 'center',
     marginVertical: 16,
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    textAlign: 'center',
+    marginVertical: 0,
+    paddingBottom: 16,
+    fontSize: 16, // Added for better readability
+    color: '#666', // Default color
   },
   inputContainer: {
     flexDirection: 'row',
@@ -104,6 +143,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
     marginRight: 8,
+    fontSize: 16, // Added for better readability
   },
   textInputDark: {
     borderColor: '#555',
@@ -116,11 +156,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center', // Center the content vertically
   },
   sendButtonDark: {
     backgroundColor: '#0056b3',
   },
-  sendButtonText: {
+  sendButtonText: { // Corrected style name
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

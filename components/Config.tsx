@@ -2,7 +2,7 @@
 
 const CONFIG = {
     // Replace '192.168.1.100' with your actual IP address
-    API_BASE_URL: 'http://192.168.1.153:5000',
+    API_BASE_URL: 'https://cjk90r1f-5000.use.devtunnels.ms/',
     // You can add more configurations here
     // e.g., TIMEOUT: 5000,
   };

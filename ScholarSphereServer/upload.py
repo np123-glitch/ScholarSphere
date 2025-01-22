@@ -4,7 +4,7 @@ from pypdf import PdfReader
 reader = PdfReader('example.pdf')
 
 
-def upload(file_name, assistant):
+def upload(file_name, assistant, userid):
     # Extract text and filter out non-UTF-8 characters
     with open("output.txt", "w", encoding="utf-8") as f:
         for i in range(len(reader.pages)):  # Iterate over the number of pages
@@ -18,5 +18,6 @@ def upload(file_name, assistant):
             f.write(clean_text + "\n")  # Add a newline after each page's text
     response = assistant.upload_file(
     file_path=file_name,
-    timeout=None
+    metadata={"userid": userid},
+    timeout=None,
     )

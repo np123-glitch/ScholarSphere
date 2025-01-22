@@ -44,7 +44,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chatarea"
         options={{
-          title: 'Chat with notes',
+          title: 'Chat with Notes',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="message" color={color} />,
         }}
       />
