@@ -100,12 +100,15 @@ def token_required(f):
         try:
             # Decode the token
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            print(token)
+
             current_user = data['sub']
         except jwt.ExpiredSignatureError:
             print('Token has expired!')
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
             print('Invalid token!')
+            print(token)
             return jsonify({'message': 'Invalid token!'}), 401
 
         # Proceed to the wrapped function, passing current_user
@@ -220,6 +223,23 @@ def login():
         return jsonify({'token': token}), 200
 
     return jsonify({'message': 'Invalid request method'}), 405
+
+@app.route('/auth/checkexpired', methods=['POST'])
+@token_required
+def check_token_expired():
+    if request.method == 'POST':
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            print('Token has expired!')
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            print('Invalid token!')
+            return jsonify({'message': 'Invalid token!'}), 401
+            
 
 @app.route('/feedback', methods=['POST'])
 @token_required
