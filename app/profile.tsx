@@ -16,6 +16,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
+import { Linking } from 'react-native';
+import { Alert } from 'react-native';
 
 export default function Profile() {
   const router = useRouter();
@@ -166,6 +168,57 @@ export default function Profile() {
             ]}
           >
             Change Password
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
+          ]}
+          onPress={() => {
+            // Open a link to the privacy policy
+            Linking.openURL('https://www.termsfeed.com/live/c647ace4-3ae9-46f8-b2bd-131cd43df439');
+          }}
+        >
+          <MaterialIcons
+            name="link"
+            size={20}
+            color={isDarkMode ? '#fff' : '#000'}
+            style={styles.actionIcon}
+          />
+          <ThemedText
+            type="button"
+            style={[
+              styles.actionButtonText,
+              isDarkMode ? { color: '#fff' } : {},
+            ]}
+          >
+            Privacy Policy
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
+          ]}
+          onPress={() => {
+            Alert.alert("Contact Information", "Email: neelprasad2008@gmail.com");
+          }}
+        >
+          <MaterialIcons
+            name="email"
+            size={20}
+            color={isDarkMode ? '#fff' : '#000'}
+            style={styles.actionIcon}
+          />
+          <ThemedText
+            type="button"
+            style={[
+              styles.actionButtonText,
+              isDarkMode ? { color: '#fff' } : {},
+            ]}
+          >
+            Contact Us
           </ThemedText>
         </TouchableOpacity>
       </View>

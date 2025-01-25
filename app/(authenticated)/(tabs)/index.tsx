@@ -129,9 +129,6 @@ export default function IndexPage() {
 }
 
 const styles = StyleSheet.create({
-  //
-  // ------------------- Main page styles -------------------
-  //
   container: {
     padding: 24,
     flex: 1,

@@ -115,12 +115,15 @@ def token_required(f):
         try:
             # Decode the token
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            print(token)
+
             current_user = data['sub']
         except jwt.ExpiredSignatureError:
             print('Token has expired!')
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
             print('Invalid token!')
+            print(token)
             return jsonify({'message': 'Invalid token!'}), 401
 
         # Proceed to the wrapped function, passing current_user
