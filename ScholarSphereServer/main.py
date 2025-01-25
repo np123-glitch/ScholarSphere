@@ -10,45 +10,60 @@ import jwt
 from functools import wraps
 from datetime import datetime, timedelta
 import threading
+import json
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
 
 # Load Secret Key from Environment Variable
-SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
+SECRET_KEY = os.environ.get("SECRET_KEY", "your_default_secret_key")
 
 # Initialize Pinecone Assistant
-pc = Pinecone(api_key="pcsk_6UCVz9_E8Nyoiconp2u2i654vS5XZSmDXzbNfYxC4aQHdGCn8f6XJuTZ7Tp9UTzuH6CtHu")
+pc = Pinecone(api_key="your_pinecone_api_key")
 assistant = pc.assistant.Assistant(assistant_name="official-assistant")
 
-# Dummy user data for demonstration (Replace with database lookup)
-USERS = {
-    "joshy_c": {
-        "password": "joshywoshy",  # In production, passwords should be hashed!
-        "email": "john.doe@example.com",
-        "roles": ["user"],
-        "realname": "Josh Cote",
-        "age": 15,
-        "gender": "male",
-    },
-    "jerky_s": {
-        "password": "jerkywjerky",  # In production, passwords should be hashed!
-        "email": "jane.doe@example.com",
-        "roles": ["user"],
-        "realname": "Jeremiah Sacrafamilia",
-        "age": 15,
-        "gender": "male",
-    },
-    "testing": {
-        "password": "testing",  # In production, passwords should be hashed!
-        "email": "jane.doe@example.com",
-        "roles": ["user"],
-        "realname": "Testing",
-        "age": 15,
-        "gender": "male",
+# Path to the users JSON file
+USERS_FILE = 'users.json'
+
+# Ensure the users.json file exists
+if not os.path.exists(USERS_FILE):
+    with open(USERS_FILE, 'w') as f:
+        json.dump({}, f)
+
+def load_users():
+    """Load users from the JSON file."""
+    with open(USERS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_users(users):
+    """Save users to the JSON file."""
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=4)
+
+def add_user(username, email, password, realname, roles=["user"]):
+    """Add a new user with hashed password."""
+    users = load_users()
+    if username in users:
+        raise ValueError("Username already exists")
+    
+    hashed_password = generate_password_hash(password)
+    users[username] = {
+        "password": hashed_password,
+        "email": email,
+        "roles": roles,
+        "realname": realname,
     }
-}
+    save_users(users)
+
+def verify_user(username, password):
+    """Verify a user's password."""
+    users = load_users()
+    user = users.get(username)
+    if not user:
+        return False
+    return check_password_hash(user['password'], password)
 
 def remove_non_utf8(text):
     return text.encode("utf-8", "ignore").decode("utf-8")
@@ -200,10 +215,13 @@ def login():
         password = data.get('password', '')
 
         # Validate user credentials
-        user = USERS.get(loginId)
-        if not user or user['password'] != password:
+        if not verify_user(loginId, password):
             print('Invalid login credentials!')
             return jsonify({'message': 'Invalid login credentials!'}), 401
+
+        # Load user data for token payload
+        users = load_users()
+        user = users.get(loginId)
 
         # Generate JWT Token
         token_payload = {
@@ -221,6 +239,30 @@ def login():
 
     return jsonify({'message': 'Invalid request method'}), 405
 
+@app.route('/auth/signup', methods=['POST'])
+def signup():
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '').strip()
+        realname = data.get('realname', '').strip()
+
+        # Basic validation
+        if not all([username, email, password, realname]):
+            return jsonify({'message': 'All fields are required!'}), 400
+
+        try:
+            add_user(username, email, password, realname)
+            return jsonify({'message': 'User registered successfully!'}), 201
+        except ValueError as ve:
+            return jsonify({'message': str(ve)}), 400
+        except Exception as e:
+            print(f"An error occurred during signup: {e}")
+            return jsonify({'message': 'An error occurred during signup.'}), 500
+
+    return jsonify({'message': 'Invalid request method'}), 405
+
 @app.route('/feedback', methods=['POST'])
 @token_required
 def feedback(current_user):
@@ -232,6 +274,8 @@ def feedback(current_user):
             f.write(f"Feedback from {current_user}: '{feedback_text}' at {datetime.now()}\n")
 
         return jsonify({'message': 'Feedback received'}), 200
+
+    return jsonify({'error': 'Invalid request method'}), 405
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

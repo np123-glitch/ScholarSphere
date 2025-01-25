@@ -9,6 +9,7 @@ interface AuthContextData {
   isLoading: boolean;
   signIn: (loginId: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signUp: (username: string, email: string, password: string, realname: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextData>({
   isLoading: true,
   signIn: async () => {},
   signOut: async () => {},
+  signUp: async () => {},
 });
 
 const baseUrl = Config.API_BASE_URL;
@@ -25,7 +27,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Load token from secure storage on mount
     const loadToken = async () => {
       try {
         const storedToken = await SecureStore.getItemAsync('authToken');
@@ -68,12 +69,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await SecureStore.deleteItemAsync('authToken');
-    setToken({ current: null });
+    try {
+      await SecureStore.deleteItemAsync('authToken');
+      setToken({ current: null });
+    } catch (error) {
+      console.error('Error signing out:', error);
+      throw error;
+    }
+  };
+
+  const signUp = async (username: string, email: string, password: string, realname: string) => {
+    try {
+      const response = await fetch(`${baseUrl}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password, realname }), 
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to register');
+      }
+
+      const data = await response.json();
+      await signIn(username, password);
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ token, isLoading, signIn, signOut, signUp }}>
       {children}
     </AuthContext.Provider>
   );

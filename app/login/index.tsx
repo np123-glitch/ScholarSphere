@@ -1,7 +1,7 @@
 // src/screens/LoginScreen.tsx
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert, useColorScheme } from 'react-native'; // Import useColorScheme
+import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert, useColorScheme, TouchableOpacity } from 'react-native'; // Import useColorScheme and TouchableOpacity
 import { useAuthSession } from '@/components/AuthProvider';
 import { useRouter } from 'expo-router'; // Import useRouter for navigation
 
@@ -33,6 +33,10 @@ const LoginScreen = () => {
     }
   };
 
+  const handleSignUpRedirect = () => {
+    router.push('../register'); // Navigate to the registration screen
+  };
+
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <Text style={[styles.title, isDarkMode && styles.titleDark]}>Login to ScholarSphere</Text>
@@ -58,6 +62,9 @@ const LoginScreen = () => {
       ) : (
         <Button title="Login" onPress={handleLogin} color="#007bff" />
       )}
+      <TouchableOpacity onPress={handleSignUpRedirect} style={styles.signupContainer}>
+        <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>New to ScholarSphere? Sign up here.</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -98,5 +105,16 @@ const styles = StyleSheet.create({
     borderColor: '#555',
     backgroundColor: '#333',
     color: '#fff', // Text color in dark mode
+  },
+  signupContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  signupText: {
+    fontSize: 16,
+    color: '#007bff',
+  },
+  signupTextDark: {
+    color: '#4ea1ff',
   },
 });
