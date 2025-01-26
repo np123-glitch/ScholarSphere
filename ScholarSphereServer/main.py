@@ -18,10 +18,10 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
 
 # Load Secret Key from Environment Variable
-SECRET_KEY = os.environ.get("SECRET_KEY", "your_default_secret_key")
+SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
 
 # Initialize Pinecone Assistant
-pc = Pinecone(api_key="your_pinecone_api_key")
+pc = Pinecone(api_key="pcsk_6UCVz9_E8Nyoiconp2u2i654vS5XZSmDXzbNfYxC4aQHdGCn8f6XJuTZ7Tp9UTzuH6CtHu")
 assistant = pc.assistant.Assistant(assistant_name="official-assistant")
 
 # Path to the users JSON file
