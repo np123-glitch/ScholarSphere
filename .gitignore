@@ -39,3 +39,4 @@ app-example
 
 ScholarSphereServer/__pycache__/
 ScholarSphereServer/venv/
+ScholarSphereServer/users.json
