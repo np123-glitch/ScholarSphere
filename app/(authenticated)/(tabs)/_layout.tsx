@@ -7,6 +7,8 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { MaterialIcons } from '@expo/vector-icons'; // Importing MaterialIcons
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -44,7 +46,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chatarea"
         options={{
-          title: 'Chat with Notes',
+          title: 'Chat',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="message" color={color} />,
         }}
       />
@@ -60,6 +62,13 @@ export default function TabLayout() {
         options={{
           title: 'Testing',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="clipboard" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="upload"
+        options={{
+          title: 'Upload',
+          tabBarIcon: ({ color }) => <MaterialIcons name="upload-file" size={24} color={color}/>,
         }}
       />
 

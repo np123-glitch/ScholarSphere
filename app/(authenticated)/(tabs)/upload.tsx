@@ -1,6 +1,5 @@
-// components/DocumentUploader.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
@@ -8,6 +7,8 @@ import {
   Platform,
   View,
   ActivityIndicator,
+  FlatList, // <-- For listing files
+  Linking,  // <-- To open file URLs
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
@@ -21,8 +22,14 @@ import Config from '@/components/Config';
 
 interface UploadResponse {
   message: string;
-  // Add other fields based on your API response
 }
+
+interface FileRecord {
+  fileName: string;
+  url: string;
+}
+
+type FileType = 'pdf' | 'audio';
 
 export default function DocumentUploader() {
   const router = useRouter();
@@ -30,104 +37,143 @@ export default function DocumentUploader() {
   const isDarkMode = systemColorScheme === 'dark';
   const { token } = useAuthSession();
 
-  const [uploading, setUploading] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  const [userFiles, setUserFiles] = useState<FileRecord[]>([]);
 
   const apiUrl = Config.API_BASE_URL;
 
-  const pickAndUploadDocument = async () => {
+  
+
+  const fetchUserFiles = async () => {
     try {
+     
+      const myUsername = 'neelprasad'; 
+
+      const response = await axios.get<FileRecord[]>(
+        `${apiUrl}/files/${myUsername}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token.current}`
+          }
+        }
+      );
+      setUserFiles(response.data);
+    } catch (err) {
+      console.error('Error fetching files:', err);
+      Alert.alert('Error', 'Could not fetch files.');
+    }
+  };
+
+  
+  useEffect(() => {
+    fetchUserFiles();
+  }, []);
+
+
+  const pickAndUploadDocument = async (fileType: FileType) => {
+    try {
+      const mimeTypes =
+        fileType === 'pdf'
+          ? ['application/pdf']
+          : [
+              'audio/mpeg',
+              'audio/mp4',
+              'audio/x-wav',
+              'audio/aac',
+              'audio/flac',
+            ];
+
       const docRes = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf', // Restrict to PDFs only
-        copyToCacheDirectory: true, // Ensure file is cached properly
-        multiple: false, // Allow only single file selection
+        type: mimeTypes,
+        copyToCacheDirectory: true,
+        multiple: false,
       });
 
-      // Log the entire response for debugging
-      console.log('Document selected:', docRes);
-
-      // Check if the user canceled the picker
       if (docRes.canceled) {
-        console.log('User canceled the document picker');
         Alert.alert('Canceled', 'No file was selected.');
         return;
       }
 
-      // Ensure 'assets' array exists and has at least one asset
       if (!docRes.assets || docRes.assets.length === 0) {
-        console.error('No assets found in the selected document:', docRes);
         Alert.alert('Error', 'No file information found.');
         return;
       }
 
-      // Extract the first asset
       const asset = docRes.assets[0];
-
-      // Ensure 'uri' exists within the asset
       if (!asset.uri) {
-        console.error('No URI found in the asset:', asset);
         Alert.alert('Error', 'Could not retrieve the file URI.');
         return;
       }
 
-      // Prepare file for upload
       const fileUri =
         Platform.OS === 'ios' ? asset.uri.replace('file://', '') : asset.uri;
-
-      // Additional check to ensure 'fileUri' is valid
       if (!fileUri) {
-        console.error('Invalid file URI after processing:', fileUri);
         Alert.alert('Error', 'Invalid file URI.');
         return;
       }
 
       const file = {
-        uri: asset.uri, // Use the original URI for FormData
-        name: asset.name || 'uploaded_file.pdf', // Provide a default name if undefined
-        type: asset.mimeType || 'application/pdf', // Fallback to PDF if mimeType is missing
+        uri: asset.uri,
+        name:
+          asset.name ||
+          (fileType === 'pdf' ? 'uploaded_file.pdf' : 'uploaded_recording.m4a'),
+        type:
+          asset.mimeType ||
+          (fileType === 'pdf' ? 'application/pdf' : 'audio/m4a'),
       };
 
       const formData = new FormData();
-
-      // Append the file to FormData with the key 'file'
       formData.append('file', {
         uri: file.uri,
         name: file.name,
         type: file.type,
-      });
+      } as any);
 
-      setUploading(true);
+      // Uploading state
+      if (fileType === 'pdf') setUploadingPdf(true);
+      else setUploadingAudio(true);
 
-      // Upload the file using Axios
       const response = await axios.post<UploadResponse>(
         `${apiUrl}/upload`,
         formData,
         {
           headers: {
             Accept: 'application/json',
-            Authorization: `Bearer ${token.current}`, // Include JWT
-            // Do NOT set 'Content-Type' manually; let Axios handle it
+            Authorization: `Bearer ${token.current}`,
           },
         }
       );
 
-      console.log('Upload Successful:', response.data);
-      
-      // Use the server's message in the alert
       Alert.alert('Success', response.data.message);
+
+      
+      fetchUserFiles();
     } catch (error: any) {
       console.error('Error while selecting or uploading file:', error);
-      
-      // Check if the error response exists and has data
       if (error.response && error.response.data && error.response.data.error) {
         Alert.alert('Error', error.response.data.error);
       } else {
-        Alert.alert(
-          'Error',
-          'An error occurred while uploading the file.'
-        );
+        Alert.alert('Error', 'An error occurred while uploading the file.');
       }
     } finally {
-      setUploading(false);
+      if (fileType === 'pdf') setUploadingPdf(false);
+      else setUploadingAudio(false);
+    }
+  };
+
+  
+  const handleOpenFile = async (fileUrl: string) => {
+    try {
+      const supported = await Linking.canOpenURL(fileUrl);
+      if (supported) {
+        await Linking.openURL(fileUrl);
+      } else {
+        Alert.alert('Error', "Can't open this file URL");
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not open file.');
     }
   };
 
@@ -138,7 +184,6 @@ export default function DocumentUploader() {
         isDarkMode ? styles.containerDark : styles.containerLight,
       ]}
     >
-      {/* Header with Back Icon and Title */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backIcon}
@@ -162,25 +207,67 @@ export default function DocumentUploader() {
         <View style={styles.placeholder} />
       </View>
 
-      {/* Upload Button */}
       <View style={styles.uploadContainer}>
         <TouchableOpacity
-          style={styles.uploadButton}
-          onPress={pickAndUploadDocument}
-          disabled={uploading}
+          style={[styles.uploadButton, styles.pdfButton]}
+          onPress={() => pickAndUploadDocument('pdf')}
+          disabled={uploadingPdf || uploadingAudio}
         >
-          {uploading ? (
+          {uploadingPdf ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <MaterialIcons name="upload-file" size={24} color="#fff" />
+            <MaterialIcons name="picture-as-pdf" size={24} color="#fff" />
           )}
         </TouchableOpacity>
         <ThemedText
           type="body"
           style={[styles.uploadText, isDarkMode ? { color: '#fff' } : {}]}
         >
-          {uploading ? 'Uploading...' : 'Pick a PDF to Upload'}
+          {uploadingPdf ? 'Uploading...' : 'Pick a PDF to Upload'}
         </ThemedText>
+      </View>
+
+      <View style={{ height: 40 }} />
+
+      <View style={styles.fileListContainer}>
+        <ThemedText
+          type="title"
+          style={[
+            { fontSize: 20, marginBottom: 10 },
+            isDarkMode ? { color: '#fff' } : {},
+          ]}
+        >
+          Your Uploaded Files
+        </ThemedText>
+
+        <FlatList
+          data={userFiles}
+          keyExtractor={(item) => item.fileName}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.fileItem}
+              onPress={() => handleOpenFile(item.url)}
+            >
+              <MaterialIcons
+                name="attachment"
+                size={24}
+                color={isDarkMode ? '#ddd' : '#333'}
+                style={{ marginRight: 10 }}
+              />
+              <ThemedText
+                type="body"
+                style={isDarkMode ? { color: '#fff' } : {}}
+              >
+                {item.fileName}
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <ThemedText type="body" style={isDarkMode ? { color: '#aaa' } : {}}>
+              No files uploaded yet.
+            </ThemedText>
+          }
+        />
       </View>
     </ThemedView>
   );
@@ -192,7 +279,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     flex: 1,
     justifyContent: 'flex-start',
-    alignItems: 'stretch', // Consistent with TodoList
+    alignItems: 'stretch',
   },
   containerLight: {
     backgroundColor: '#ffffff',
@@ -217,7 +304,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   placeholder: {
-    width: 24, // To balance the header layout
+    width: 24,
   },
   uploadContainer: {
     alignItems: 'center',
@@ -226,14 +313,27 @@ const styles = StyleSheet.create({
   uploadButton: {
     width: 60,
     height: 60,
-    backgroundColor: '#007AFF',
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
   },
+  pdfButton: {
+    backgroundColor: '#FF5722', // Orange for PDF
+  },
+  audioButton: {
+    backgroundColor: '#4CAF50', // Green for Audio
+  },
   uploadText: {
     fontSize: 18,
     textAlign: 'center',
+  },
+  fileListContainer: {
+    flex: 1,
+  },
+  fileItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
 });

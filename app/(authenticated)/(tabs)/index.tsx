@@ -103,17 +103,6 @@ export default function IndexPage() {
             <Text style={styles.actionButtonText}>Todo List</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Upload Documents Button */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
-            onPress={() => router.navigate('../../upload')}
-          >
-            <MaterialIcons name="upload-file" size={24} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Upload Documents</Text>
-          </TouchableOpacity>
-        </View>
         {/* Feedback Button */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity

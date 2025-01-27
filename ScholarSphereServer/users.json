@@ -1,0 +1,10 @@
+{
+    "neelprasad": {
+        "password": "scrypt:32768:8:1$DM2hzs9tZoACtJ2v$1926ad41370b30f85cad932d743c4226a94846c878df419c046019ae0fb809339ca19c5093aabf4036034641f4452c6c98f534121ea290efc89b143dab713818",
+        "email": "neelprasad2008@gmail.com",
+        "roles": [
+            "user"
+        ],
+        "realname": "Neel Prasad"
+    }
+}

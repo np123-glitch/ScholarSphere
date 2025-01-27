@@ -64,7 +64,6 @@ const RegisterScreen = () => {
         placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
         value={realname}
         onChangeText={setRealName}
-        secureTextEntry
       />
       <TextInput
         style={[styles.input, isDarkMode && styles.inputDark]}

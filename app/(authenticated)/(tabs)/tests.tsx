@@ -9,11 +9,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
-  ScrollView,
   FlatList,
-  TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
@@ -38,7 +36,7 @@ type TestSet = {
 };
 
 export default function TestFlashcardScreen() {
-  const { token, isLoading: authLoading } = useAuthSession();
+  const { token } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<number>(5);
   const [numQuestions, setNumQuestions] = useState<number>(5);
@@ -49,7 +47,6 @@ export default function TestFlashcardScreen() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [savedTests, setSavedTests] = useState<TestSet[]>([]);
   const [selectedSavedTest, setSelectedSavedTest] = useState<TestSet | null>(null);
-
   const [recentTopics, setRecentTopics] = useState<string[]>([]);
   const [showRecentTopics, setShowRecentTopics] = useState<boolean>(false);
 
@@ -57,17 +54,15 @@ export default function TestFlashcardScreen() {
   const isDarkMode = colorScheme === 'dark';
   const baseUrl = Config.API_BASE_URL;
 
-  // Load saved tests and recent topics when component mounts
   useEffect(() => {
     loadSavedTests();
     loadRecentTopics();
   }, []);
 
-  // Function to load saved tests from AsyncStorage
   const loadSavedTests = async () => {
     try {
       const jsonValue = await AsyncStorage.getItem('@test_sets');
-      if (jsonValue != null) {
+      if (jsonValue) {
         const sets: TestSet[] = JSON.parse(jsonValue);
         setSavedTests(sets);
       }
@@ -76,7 +71,6 @@ export default function TestFlashcardScreen() {
     }
   };
 
-  // Function to save test sets to AsyncStorage
   const saveTestSets = async (sets: TestSet[]) => {
     try {
       const jsonValue = JSON.stringify(sets);
@@ -86,11 +80,10 @@ export default function TestFlashcardScreen() {
     }
   };
 
-  // Function to load recent topics from AsyncStorage
   const loadRecentTopics = async () => {
     try {
       const jsonValue = await AsyncStorage.getItem('@recent_topics');
-      if (jsonValue != null) {
+      if (jsonValue) {
         const topics: string[] = JSON.parse(jsonValue);
         setRecentTopics(topics);
       }
@@ -99,7 +92,6 @@ export default function TestFlashcardScreen() {
     }
   };
 
-  // Function to save recent topics to AsyncStorage
   const saveRecentTopics = async (topics: string[]) => {
     try {
       const jsonValue = JSON.stringify(topics);
@@ -109,14 +101,10 @@ export default function TestFlashcardScreen() {
     }
   };
 
-  // Function to add a topic to recent topics
   const addToRecentTopics = async (newTopic: string) => {
     let updatedTopics = [...recentTopics];
-    // Remove the topic if it already exists
     updatedTopics = updatedTopics.filter((t) => t.toLowerCase() !== newTopic.toLowerCase());
-    // Add the new topic to the front
     updatedTopics.unshift(newTopic);
-    // Limit to 10 recent topics
     if (updatedTopics.length > 10) {
       updatedTopics = updatedTopics.slice(0, 10);
     }
@@ -129,55 +117,42 @@ export default function TestFlashcardScreen() {
       Alert.alert('Validation Error', 'Please enter a topic.');
       return;
     }
-
     setLoading(true);
     setIsSubmitted(false);
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setUserAnswers({});
-    setSelectedSavedTest(null); // Reset selected saved test
+    setSelectedSavedTest(null);
 
     try {
-      // Prompt for your backend
       const message = `
         Generate ${numQuestions} multiple-choice test questions about "${topic}"
         with difficulty level ${difficulty} on a scale of 1-10.
         Each question must be on its own line, using the exact format:
         [question:optionA:optionB:optionC:optionD:correctAnswer]
       `;
-
-      const response = await fetch(baseUrl + '/chat', {
+      const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token.current}`,
+          Authorization: `Bearer ${token.current}`,
         },
         body: JSON.stringify({ message }),
       });
-
       const data = await response.json();
       if (response.ok && data?.response) {
-        // Parse each line to get question, options, and correct answer
         const lines = data.response
           .split('\n')
           .map((line: string) => line.trim())
           .filter(Boolean);
-
         const parsedQuestions: TestQuestion[] = lines
           .map((qLine: string) => {
-            // Remove square brackets and numbering if present
             const innerText = qLine.replace(/^\d+\.\s*\[|\]$/g, '');
-            // Split on ':'
             const parts = innerText.split(':');
-
-            // Expect 6 parts: question, A, B, C, D, correctAnswer
             if (parts.length < 6) return null;
             const [questionText, optA, optB, optC, optD, rawCorrect] = parts;
             const correctAnswer = rawCorrect.trim().toUpperCase() as keyof TestQuestion['options'];
-
-            // Validate correctAnswer
             if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) return null;
-
             return {
               question: questionText.trim(),
               options: {
@@ -190,13 +165,11 @@ export default function TestFlashcardScreen() {
             };
           })
           .filter(Boolean) as TestQuestion[];
-
         setQuestions(parsedQuestions);
         setCurrentQuestionIndex(0);
         setUserAnswers({});
         setIsSubmitted(false);
 
-        // Save the generated test as a new set
         const newSet: TestSet = {
           id: Date.now().toString(),
           topic: topic.trim(),
@@ -205,12 +178,9 @@ export default function TestFlashcardScreen() {
           createdAt: new Date().toISOString(),
           questions: parsedQuestions,
         };
-
         const updatedSets = [newSet, ...savedTests];
         setSavedTests(updatedSets);
         await saveTestSets(updatedSets);
-
-        // Add the topic to recent topics
         await addToRecentTopics(newSet.topic);
       } else {
         console.error('Failed to generate test:', data.error || 'Unknown error');
@@ -251,14 +221,12 @@ export default function TestFlashcardScreen() {
 
   const renderScore = () => {
     if (!isSubmitted) return null;
-
     let correctCount = 0;
     questions.forEach((q, idx) => {
       if (userAnswers[idx] === q.correctAnswer) {
         correctCount++;
       }
     });
-
     return (
       <View style={styles.scoreContainer}>
         <Text style={[styles.scoreText, isDarkMode ? { color: '#fff' } : {}]}>
@@ -268,7 +236,6 @@ export default function TestFlashcardScreen() {
     );
   };
 
-  // Handle selecting a saved test
   const handleSelectSavedTest = (set: TestSet) => {
     setSelectedSavedTest(set);
     setQuestions(set.questions);
@@ -277,52 +244,44 @@ export default function TestFlashcardScreen() {
     setIsSubmitted(false);
   };
 
-  // Handle deleting a saved test
   const handleDeleteSavedTest = (setId: string) => {
-    Alert.alert(
-      'Delete Test Set',
-      'Are you sure you want to delete this test set?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updatedSets = savedTests.filter((set) => set.id !== setId);
-            setSavedTests(updatedSets);
-            await saveTestSets(updatedSets);
-            // If the deleted set was selected, reset the current test
-            if (selectedSavedTest?.id === setId) {
-              setSelectedSavedTest(null);
-              setQuestions([]);
-              setCurrentQuestionIndex(0);
-              setUserAnswers({});
-              setIsSubmitted(false);
-            }
-          },
+    Alert.alert('Delete Test Set', 'Are you sure you want to delete this test set?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updatedSets = savedTests.filter((set) => set.id !== setId);
+          setSavedTests(updatedSets);
+          await saveTestSets(updatedSets);
+          if (selectedSavedTest?.id === setId) {
+            setSelectedSavedTest(null);
+            setQuestions([]);
+            setCurrentQuestionIndex(0);
+            setUserAnswers({});
+            setIsSubmitted(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  // Handle selecting a recent topic
   const handleSelectRecentTopic = (selectedTopic: string) => {
     setTopic(selectedTopic);
     setShowRecentTopics(false);
   };
 
-  // Handle focus on topic TextInput
   const handleFocusTopic = () => {
     setShowRecentTopics(true);
   };
 
-  // Handle blur on topic TextInput
   const handleBlurTopic = () => {
-    // Delay hiding to allow onPress event on recent topics to register
     setTimeout(() => setShowRecentTopics(false), 100);
   };
 
-  // Current question or default fallback
+  const difficulties = Array.from({ length: 10 }, (_, i) => i + 1);
+  const questionCounts = Array.from({ length: 20 }, (_, i) => i + 1);
+
   const currentQuestion = questions[currentQuestionIndex] || {
     question: '',
     options: { A: '', B: '', C: '', D: '' },
@@ -340,7 +299,6 @@ export default function TestFlashcardScreen() {
           Example: "Absolutism"
         </ThemedText>
 
-        {/* Topic Input with Recent Topics Dropdown */}
         <View style={styles.inputContainer}>
           <TextInput
             style={[styles.input, isDarkMode ? styles.inputDark : {}]}
@@ -352,7 +310,12 @@ export default function TestFlashcardScreen() {
             onBlur={handleBlurTopic}
           />
           {showRecentTopics && recentTopics.length > 0 && (
-            <View style={[styles.recentTopicsContainer, isDarkMode ? styles.recentTopicsContainerDark : {}]}>
+            <View
+              style={[
+                styles.recentTopicsContainer,
+                isDarkMode ? styles.recentTopicsContainerDark : {},
+              ]}
+            >
               {recentTopics.map((t, index) => (
                 <TouchableOpacity
                   key={index}
@@ -368,29 +331,54 @@ export default function TestFlashcardScreen() {
           )}
         </View>
 
-        {/* Difficulty Picker */}
-        <Picker
-          selectedValue={String(difficulty)}
-          style={[styles.picker, isDarkMode ? styles.pickerDark : {}]}
-          onValueChange={(value) => setDifficulty(Number(value))}
-        >
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-            <Picker.Item key={num} label={`Difficulty ${num}`} value={`${num}`} />
-          ))}
-        </Picker>
+        <View style={styles.sideBySidePickerContainer}>
+          <View style={styles.scrollColumn}>
+            <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
+              Difficulty
+            </Text>
+            <ScrollView style={styles.scrollableList}>
+              {difficulties.map((diff) => (
+                <TouchableOpacity
+                  key={diff}
+                  style={[
+                    styles.listItem,
+                    difficulty === diff && styles.listItemSelected,
+                    isDarkMode ? styles.listItemDark : {},
+                  ]}
+                  onPress={() => setDifficulty(diff)}
+                >
+                  <Text style={[styles.listItemText, isDarkMode ? { color: '#fff' } : {}]}>
+                    Level {diff}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-        {/* Number of Questions Picker */}
-        <Picker
-          selectedValue={String(numQuestions)}
-          style={[styles.picker, isDarkMode ? styles.pickerDark : {}]}
-          onValueChange={(value) => setNumQuestions(Number(value))}
-        >
-          {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-            <Picker.Item key={num} label={`${num} questions`} value={`${num}`} />
-          ))}
-        </Picker>
+          <View style={styles.scrollColumn}>
+            <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
+              Questions
+            </Text>
+            <ScrollView style={styles.scrollableList}>
+              {questionCounts.map((q) => (
+                <TouchableOpacity
+                  key={q}
+                  style={[
+                    styles.listItem,
+                    numQuestions === q && styles.listItemSelected,
+                    isDarkMode ? styles.listItemDark : {},
+                  ]}
+                  onPress={() => setNumQuestions(q)}
+                >
+                  <Text style={[styles.listItemText, isDarkMode ? { color: '#fff' } : {}]}>
+                    {q} Qs
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
 
-        {/* Generate Button */}
         <TouchableOpacity
           style={[styles.buttonGenerate, isDarkMode ? styles.buttonGenerateDark : {}]}
           onPress={handleGenerateTest}
@@ -403,7 +391,6 @@ export default function TestFlashcardScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Saved Tests Section */}
         <ThemedView style={styles.savedSection}>
           <ThemedText type="subtitle" style={styles.savedTitle}>
             Saved Test Sets
@@ -431,10 +418,7 @@ export default function TestFlashcardScreen() {
                     {new Date(item.createdAt).toLocaleString()}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => handleDeleteSavedTest(item.id)}
-                  style={styles.deleteButton}
-                >
+                <TouchableOpacity onPress={() => handleDeleteSavedTest(item.id)} style={styles.deleteButton}>
                   <Text style={styles.deleteButtonText}>Delete</Text>
                 </TouchableOpacity>
               </TouchableOpacity>
@@ -442,39 +426,34 @@ export default function TestFlashcardScreen() {
           )}
         </ThemedView>
 
-        {/* Exam Section */}
         {questions.length > 0 && (
           <View style={styles.testContainer}>
             <Text style={[styles.counterText, isDarkMode ? { color: '#fff' } : {}]}>
               Question {currentQuestionIndex + 1} of {questions.length}
             </Text>
-
-            {/* Question Text */}
-            <View style={[styles.questionContainer, isDarkMode ? styles.questionContainerDark : {}]}>
+            <View
+              style={[
+                styles.questionContainer,
+                isDarkMode ? styles.questionContainerDark : {},
+              ]}
+            >
               <Text style={[styles.questionText, { color: isDarkMode ? '#fff' : '#000' }]}>
                 {currentQuestion.question}
               </Text>
             </View>
-
-            {/* Options */}
             <View style={styles.optionsContainer}>
               {Object.entries(currentQuestion.options).map(([key, val]) => {
-                const isSelected = userSelected === key;
+                const isSelected = userAnswers[currentQuestionIndex] === key;
                 const isCorrect = isSubmitted && key === currentQuestion.correctAnswer;
-                const isWrongSelection =
-                  isSubmitted && isSelected && key !== currentQuestion.correctAnswer;
-
+                const isWrongSelection = isSubmitted && isSelected && key !== currentQuestion.correctAnswer;
                 return (
                   <TouchableOpacity
                     key={key}
                     style={[
                       styles.optionButton,
                       isDarkMode ? styles.optionButtonDark : {},
-                      // Highlight the selected option if not submitted
                       isSelected && !isSubmitted ? styles.optionSelected : {},
-                      // Highlight the correct answer in green after submission
                       isCorrect ? styles.optionCorrect : {},
-                      // Highlight the wrong selection in red after submission
                       isWrongSelection ? styles.optionWrong : {},
                     ]}
                     onPress={() => handleSelectAnswer(key as keyof TestQuestion['options'])}
@@ -486,8 +465,6 @@ export default function TestFlashcardScreen() {
                 );
               })}
             </View>
-
-            {/* Navigation Buttons */}
             <View style={styles.navButtonsContainer}>
               <TouchableOpacity
                 style={[
@@ -500,8 +477,6 @@ export default function TestFlashcardScreen() {
               >
                 <Text style={styles.navButtonText}>Back</Text>
               </TouchableOpacity>
-
-              {/* If not on the last question, show "Next" */}
               {currentQuestionIndex < questions.length - 1 && (
                 <TouchableOpacity
                   style={[styles.navButton, isDarkMode ? styles.navButtonDark : {}]}
@@ -511,14 +486,11 @@ export default function TestFlashcardScreen() {
                 </TouchableOpacity>
               )}
             </View>
-
-            {/* Submit Button on the last question (if not submitted) */}
             {currentQuestionIndex === questions.length - 1 && !isSubmitted && (
               <TouchableOpacity
                 style={[
                   styles.buttonSubmit,
                   isDarkMode ? styles.buttonSubmitDark : {},
-                  // Increased padding
                   { marginTop: 12, paddingHorizontal: 16, paddingVertical: 16 },
                 ]}
                 onPress={handleSubmit}
@@ -526,8 +498,6 @@ export default function TestFlashcardScreen() {
                 <Text style={styles.buttonText}>Submit Test</Text>
               </TouchableOpacity>
             )}
-
-            {/* Score */}
             {renderScore()}
           </View>
         )}
@@ -546,6 +516,13 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     fontSize: 32,
     fontWeight: 'bold',
+  },
+  subtitle: {
+    textAlign: 'center',
+    marginVertical: 0,
+    paddingBottom: 16,
+    fontSize: 16,
+    color: '#666',
   },
   inputContainer: {
     marginHorizontal: 16,
@@ -566,7 +543,7 @@ const styles = StyleSheet.create({
   },
   recentTopicsContainer: {
     position: 'absolute',
-    top: 50, // Adjust based on TextInput height
+    top: 50,
     left: 0,
     right: 0,
     backgroundColor: '#fff',
@@ -585,18 +562,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
   },
-  recentTopicItemDark: {
-    borderBottomColor: '#555',
-  },
   recentTopicText: {
     fontSize: 16,
   },
-  picker: {
-    marginBottom: 16,
+  sideBySidePickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginHorizontal: 16,
   },
-  pickerDark: {
-    color: '#fff',
+  scrollColumn: {
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  scrollableList: {
+    maxHeight: 150,
+    width: '100%',
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+  },
+  pickerLabel: {
+    marginTop: 8,
+    fontSize: 16,
+  },
+  listItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#ccc',
+  },
+  listItemDark: {
+    borderColor: '#666',
+  },
+  listItemSelected: {
+    backgroundColor: '#007bff33',
+  },
+  listItemText: {
+    fontSize: 16,
   },
   buttonGenerate: {
     backgroundColor: '#007bff',
@@ -604,7 +607,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginVertical: 16,
   },
   buttonGenerateDark: {
     backgroundColor: '#0056b3',
@@ -744,12 +747,5 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginVertical: 0,
-    paddingBottom: 16,
-    fontSize: 16, // Added for better readability
-    color: '#666', // Default color
   },
 });

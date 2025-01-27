@@ -1,5 +1,0 @@
-1. Finish upload logic
-2. Add recording
-3. Add calendar
-4. Add logic for signout after token expires
-5. Integrate with Powerschool for grades
