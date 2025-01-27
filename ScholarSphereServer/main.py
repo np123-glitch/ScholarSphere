@@ -13,11 +13,8 @@ from datetime import datetime, timedelta
 import threading
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
-import speech_recognition as sr
-from pydub import AudioSegment
 from werkzeug.utils import secure_filename
 from pypdf import PdfReader
-import whisper
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
