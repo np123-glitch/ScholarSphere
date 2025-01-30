@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -19,6 +18,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import Config from '@/components/Config';
+import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
 
 interface UploadResponse {
   message: string;
@@ -29,34 +29,36 @@ interface FileRecord {
   url: string;
 }
 
-type FileType = 'pdf' | 'audio';
+type FileType = 'pdf';
 
 export default function DocumentUploader() {
   const router = useRouter();
   const systemColorScheme = useColorScheme() || 'light';
   const isDarkMode = systemColorScheme === 'dark';
   const { token } = useAuthSession();
+  const [userName, setUserName] = useState<string | null>(null);
 
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
 
   const [userFiles, setUserFiles] = useState<FileRecord[]>([]);
-
+  const [isLoading, setIsLoading] = useState(true);
+  
   const apiUrl = Config.API_BASE_URL;
 
-  
 
   const fetchUserFiles = async () => {
-    try {
-     
-      const myUsername = 'neelprasad'; 
+    if (!userName) {
+      console.warn('Cannot fetch files: userName is null');
+      return;
+    }
 
+    try {
       const response = await axios.get<FileRecord[]>(
-        `${apiUrl}/files/${myUsername}`,
+        `${apiUrl}/files/${userName}`,
         {
           headers: {
-            Authorization: `Bearer ${token.current}`
-          }
+            Authorization: `Bearer ${token.current}`,
+          },
         }
       );
       setUserFiles(response.data);
@@ -66,24 +68,34 @@ export default function DocumentUploader() {
     }
   };
 
-  
-  useEffect(() => {
-    fetchUserFiles();
-  }, []);
 
+  useEffect(() => {
+    if (token.current) {
+      const decodedToken = decodeJwt(token.current);
+      console.log('Decoded Token:', decodedToken); // Debugging line
+      if (decodedToken && decodedToken.sub) {
+        setUserName(decodedToken.sub); // Use 'name' exclusively
+      } else {
+        console.error('Name not found in token:', decodedToken);
+        Alert.alert('Error', 'User name not found in token.');
+        setUserName(null);
+      }
+      setIsLoading(false);
+    } else {
+      setUserName(null);
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (userName) {
+      fetchUserFiles();
+    }
+  }, [userName]); // Trigger fetch when userName is set
 
   const pickAndUploadDocument = async (fileType: FileType) => {
     try {
-      const mimeTypes =
-        fileType === 'pdf'
-          ? ['application/pdf']
-          : [
-              'audio/mpeg',
-              'audio/mp4',
-              'audio/x-wav',
-              'audio/aac',
-              'audio/flac',
-            ];
+      const mimeTypes = ['application/pdf'];
 
       const docRes = await DocumentPicker.getDocumentAsync({
         type: mimeTypes,
@@ -132,8 +144,7 @@ export default function DocumentUploader() {
       } as any);
 
       // Uploading state
-      if (fileType === 'pdf') setUploadingPdf(true);
-      else setUploadingAudio(true);
+      setUploadingPdf(true);
 
       const response = await axios.post<UploadResponse>(
         `${apiUrl}/upload`,
@@ -142,13 +153,13 @@ export default function DocumentUploader() {
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${token.current}`,
+            'Content-Type': 'multipart/form-data', // Ensure correct headers for file upload
           },
         }
       );
 
       Alert.alert('Success', response.data.message);
 
-      
       fetchUserFiles();
     } catch (error: any) {
       console.error('Error while selecting or uploading file:', error);
@@ -158,12 +169,11 @@ export default function DocumentUploader() {
         Alert.alert('Error', 'An error occurred while uploading the file.');
       }
     } finally {
-      if (fileType === 'pdf') setUploadingPdf(false);
-      else setUploadingAudio(false);
+      setUploadingPdf(false);
     }
   };
 
-  
+
   const handleOpenFile = async (fileUrl: string) => {
     try {
       const supported = await Linking.canOpenURL(fileUrl);
@@ -176,6 +186,20 @@ export default function DocumentUploader() {
       Alert.alert('Error', 'Could not open file.');
     }
   };
+
+  if (isLoading) {
+    return (
+      <ThemedView
+        style={[
+          styles.container,
+          isDarkMode ? styles.containerDark : styles.containerLight,
+          { justifyContent: 'center', alignItems: 'center' },
+        ]}
+      >
+        <ActivityIndicator size="large" color={isDarkMode ? '#fff' : '#000'} />
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView
@@ -211,7 +235,7 @@ export default function DocumentUploader() {
         <TouchableOpacity
           style={[styles.uploadButton, styles.pdfButton]}
           onPress={() => pickAndUploadDocument('pdf')}
-          disabled={uploadingPdf || uploadingAudio}
+          disabled={uploadingPdf}
         >
           {uploadingPdf ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -320,9 +344,6 @@ const styles = StyleSheet.create({
   },
   pdfButton: {
     backgroundColor: '#FF5722', // Orange for PDF
-  },
-  audioButton: {
-    backgroundColor: '#4CAF50', // Green for Audio
   },
   uploadText: {
     fontSize: 18,
