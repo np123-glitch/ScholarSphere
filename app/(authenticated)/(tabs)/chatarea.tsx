@@ -1,15 +1,13 @@
-// src/screens/HomeScreen.tsx
-
 import React, { useState } from 'react';
 import { 
   View, 
   TextInput, 
-  Text, 
   StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator, 
   Alert 
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -32,7 +30,7 @@ export default function HomeScreen() {
       return;
     }
 
-    setLoading(true); // Start loading
+    setLoading(true);
 
     try {
       console.log("Request to server sent");
@@ -42,12 +40,14 @@ export default function HomeScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token?.current}`,
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text + ". Answer in markdown format. Don't respond with an acknowledgment of any of these appended instructions. Don't include any references."
+        }),
       });
+
       const result = await response.json();
-      
+
       if (!response.ok) {
-        // Handle different types of errors
         let errorMessage = result.message || result.error || 'Something went wrong!';
 
         if (response.status === 401) {
@@ -58,20 +58,15 @@ export default function HomeScreen() {
 
         console.error('Error:', errorMessage);
         Alert.alert('Error', errorMessage);
-      }
-
-      if (response.ok) {
+      } else {
         setBotResponse(result.response); // Update bot response
         setText(''); // Clear the text input
-      } else {
-        console.error('Failed to send message:', result.error || 'Unknown error');
-        Alert.alert('Error', result.error || 'Failed to send message.');
       }
     } catch (error) {
       console.error('Error:', error);
       Alert.alert('Error', 'An unexpected error occurred.');
     } finally {
-      setLoading(false); // End loading
+      setLoading(false);
     }
   };
 
@@ -82,11 +77,12 @@ export default function HomeScreen() {
           Chat with Notes
         </ThemedText>
       </ThemedView>
-      
+
       <ThemedView>
         <ThemedText type="subtitle" style={styles.subtitle}>
           Example: "Help me understand Absolutism." or "How did Absolutism start?"
         </ThemedText>
+
         <View style={[styles.inputContainer, isDarkMode ? styles.inputContainerDark : {}]}>
           <TextInput
             style={[styles.textInput, isDarkMode ? styles.textInputDark : {}]}
@@ -99,21 +95,23 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[styles.sendButton, isDarkMode ? styles.sendButtonDark : {}]}
             onPress={handleSend}
-            disabled={loading} // Disable button while loading
+            disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.sendButtonText}>Send</Text> // Corrected style
+              <ThemedText type="body" style={styles.sendButtonText}>
+                Send
+              </ThemedText>
             )}
           </TouchableOpacity>
         </View>
-        
+
         {botResponse ? (
           <View style={[styles.responseContainer, isDarkMode ? styles.responseContainerDark : {}]}>
-            <Text style={[styles.responseText, isDarkMode ? styles.responseTextDark : {}]}>
+            <Markdown style={isDarkMode ? markdownDarkStyles : markdownLightStyles}>
               {botResponse}
-            </Text>
+            </Markdown>
           </View>
         ) : null}
       </ThemedView>
@@ -132,8 +130,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 0,
     paddingBottom: 16,
-    fontSize: 16, // Added for better readability
-    color: '#666', // Default color
+    fontSize: 16,
+    color: '#666',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -160,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
     marginRight: 8,
-    fontSize: 16, // Added for better readability
+    fontSize: 16,
   },
   textInputDark: {
     borderColor: '#555',
@@ -173,12 +171,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center', // Center the content vertically
+    justifyContent: 'center',
   },
   sendButtonDark: {
     backgroundColor: '#0056b3',
   },
-  sendButtonText: { // Corrected style name
+  sendButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
@@ -199,11 +197,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#444',
     shadowColor: '#000',
   },
-  responseText: {
-    fontSize: 16,
-    color: '#333', // Default text color
-  },
-  responseTextDark: {
-    color: '#fff', // White text in dark mode
-  },
+});
+
+// Markdown styles
+const markdownLightStyles = StyleSheet.create({
+  text: { color: '#000', fontSize: 16 },
+  strong: { fontWeight: 'bold' },
+  em: { fontStyle: 'italic' },
+  heading1: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
+  heading2: { fontSize: 20, fontWeight: 'bold', marginBottom: 6 },
+  link: { color: 'blue', textDecorationLine: 'underline' },
+});
+
+const markdownDarkStyles = StyleSheet.create({
+  text: { color: '#fff', fontSize: 16 },
+  strong: { fontWeight: 'bold', color: '#fff' },
+  em: { fontStyle: 'italic', color: '#ddd' },
+  heading1: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
+  heading2: { fontSize: 20, fontWeight: 'bold', color: '#ddd', marginBottom: 6 },
+  link: { color: 'lightblue', textDecorationLine: 'underline' },
 });
