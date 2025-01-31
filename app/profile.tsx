@@ -83,17 +83,6 @@ export default function Profile() {
           Profile
         </ThemedText>
 
-        <TouchableOpacity
-          style={styles.settingsIcon}
-          onPress={() => setSettingsModalVisible(true)}
-          accessibilityLabel="Open Settings"
-        >
-          <Ionicons
-            name="settings-sharp"
-            size={24}
-            color={isDarkMode ? '#fff' : '#000'}
-          />
-        </TouchableOpacity>
       </View>
       
       <View
@@ -121,55 +110,7 @@ export default function Profile() {
           </>
         )}
       </View>
-      <ThemedText type="defaultSemiBold" style={styles.description}>
-        ** Please note that some of the buttons may not work right now even if you click on them. This is intentional to test the app's functionality. Thank you for your understanding. **
-      </ThemedText>
       <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
-          ]}
-        >
-          <MaterialIcons
-            name="edit"
-            size={20}
-            color={isDarkMode ? '#fff' : '#000'}
-            style={styles.actionIcon}
-          />
-          <ThemedText
-            type="button"
-            style={[
-              styles.actionButtonText,
-              isDarkMode ? { color: '#fff' } : {},
-            ]}
-          >
-            Edit Profile
-          </ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
-          ]}
-        >
-          <MaterialIcons
-            name="lock"
-            size={20}
-            color={isDarkMode ? '#fff' : '#000'}
-            style={styles.actionIcon}
-          />
-          <ThemedText
-            type="button"
-            style={[
-              styles.actionButtonText,
-              isDarkMode ? { color: '#fff' } : {},
-            ]}
-          >
-            Change Password
-          </ThemedText>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.actionButton,

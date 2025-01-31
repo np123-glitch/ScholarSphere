@@ -1,16 +1,15 @@
-// src/screens/FlashcardsScreen.tsx
+// src/screens/TestFlashcardScreen.tsx
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
-  TextInput,
   Text,
-  StyleSheet,
+  TextInput,
   TouchableOpacity,
-  Animated,
   ActivityIndicator,
+  StyleSheet,
   Alert,
-  TouchableWithoutFeedback, // Import TouchableWithoutFeedback
+  ScrollView,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,444 +20,573 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import Config from '@/components/Config';
 import { useAuthSession } from '@/components/AuthProvider';
 
-interface Flashcard {
+type TestQuestion = {
   question: string;
-  answer: string;
-}
+  options: { A: string; B: string; C: string; D: string };
+  correctAnswer: keyof TestQuestion['options'];
+};
 
-interface FlashcardSet {
+type TestSet = {
   id: string;
   topic: string;
-  count: number;
+  difficulty: number;
+  numQuestions: number;
   createdAt: string;
-  flashcards: Flashcard[];
-}
+  questions: TestQuestion[];
+};
 
-export default function FlashcardsScreen() {
-  const { token, isLoading: authLoading } = useAuthSession();
+export default function TestFlashcardScreen() {
+  const { token } = useAuthSession();
   const [topic, setTopic] = useState('');
-  const [count, setCount] = useState(5);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [difficulty, setDifficulty] = useState<number>(5);
+  const [numQuestions, setNumQuestions] = useState<number>(5);
+  const [questions, setQuestions] = useState<TestQuestion[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [userAnswers, setUserAnswers] = useState<{ [key: number]: keyof TestQuestion['options'] }>({});
   const [loading, setLoading] = useState(false);
-  const [savedFlashcards, setSavedFlashcards] = useState<FlashcardSet[]>([]);
-  const [selectedSavedSet, setSelectedSavedSet] = useState<FlashcardSet | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [savedTests, setSavedTests] = useState<TestSet[]>([]);
+  const [selectedSavedTest, setSelectedSavedTest] = useState<TestSet | null>(null);
+  const [recentTopics, setRecentTopics] = useState<string[]>([]);
+  const [showRecentTopics, setShowRecentTopics] = useState<boolean>(false);
 
   const colorScheme = useColorScheme() || 'light';
   const isDarkMode = colorScheme === 'dark';
   const baseUrl = Config.API_BASE_URL;
 
-  // 3D flip animation value
-  const flipAnim = useRef(new Animated.Value(0)).current;
+  // Arrays used for populating the Picker items
+  const difficulties = Array.from({ length: 10 }, (_, i) => i + 1);
+  const questionCounts = Array.from({ length: 20 }, (_, i) => i + 1);
 
-  // State to prevent multiple simultaneous flips
-  const [isFlipping, setIsFlipping] = useState(false);
-
-  // Track whether the card is showing front or back
-  const [isFront, setIsFront] = useState(true);
-
-  // Load saved flashcards when component mounts
   useEffect(() => {
-    loadSavedFlashcards();
+    loadSavedTests();
+    loadRecentTopics();
   }, []);
 
-  // Function to load saved flashcards from AsyncStorage
-  const loadSavedFlashcards = async () => {
+  const loadSavedTests = async () => {
     try {
-      const jsonValue = await AsyncStorage.getItem('@flashcard_sets');
-      if (jsonValue != null) {
-        const sets: FlashcardSet[] = JSON.parse(jsonValue);
-        setSavedFlashcards(sets);
+      const jsonValue = await AsyncStorage.getItem('@test_sets');
+      if (jsonValue) {
+        const sets: TestSet[] = JSON.parse(jsonValue);
+        setSavedTests(sets);
       }
     } catch (e) {
-      console.error('Failed to load flashcard sets:', e);
+      console.error('Failed to load test sets:', e);
     }
   };
 
-  // Function to save flashcard sets to AsyncStorage
-  const saveFlashcardSets = async (sets: FlashcardSet[]) => {
+  const saveTestSets = async (sets: TestSet[]) => {
     try {
       const jsonValue = JSON.stringify(sets);
-      await AsyncStorage.setItem('@flashcard_sets', jsonValue);
+      await AsyncStorage.setItem('@test_sets', jsonValue);
     } catch (e) {
-      console.error('Failed to save flashcard sets:', e);
+      console.error('Failed to save test sets:', e);
     }
   };
 
-  // Handle flipping animation
-  const flipCard = () => {
-    if (isFlipping) return; // Prevent flip if already animating
-    setIsFlipping(true);
-
-    Animated.spring(flipAnim, {
-      toValue: isFront ? 180 : 0,
-      friction: 8,
-      tension: 10,
-      useNativeDriver: true,
-    }).start(() => {
-      setIsFront(!isFront);
-      setIsFlipping(false);
-    });
+  const loadRecentTopics = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@recent_topics');
+      if (jsonValue) {
+        const topics: string[] = JSON.parse(jsonValue);
+        setRecentTopics(topics);
+      }
+    } catch (e) {
+      console.error('Failed to load recent topics:', e);
+    }
   };
 
-  // Interpolate flipAnim from 0→180 into 0deg→180deg for the front
-  const frontAnimatedStyle = {
-    transform: [
-      {
-        rotateY: flipAnim.interpolate({
-          inputRange: [0, 180],
-          outputRange: ['0deg', '180deg'],
-        }),
-      },
-    ],
+  const saveRecentTopics = async (topics: string[]) => {
+    try {
+      const jsonValue = JSON.stringify(topics);
+      await AsyncStorage.setItem('@recent_topics', jsonValue);
+    } catch (e) {
+      console.error('Failed to save recent topics:', e);
+    }
   };
 
-  // Interpolate flipAnim from 0→180 into 180deg→360deg for the back
-  const backAnimatedStyle = {
-    transform: [
-      {
-        rotateY: flipAnim.interpolate({
-          inputRange: [0, 180],
-          outputRange: ['180deg', '360deg'],
-        }),
-      },
-    ],
+  const addToRecentTopics = async (newTopic: string) => {
+    let updatedTopics = [...recentTopics];
+    updatedTopics = updatedTopics.filter((t) => t.toLowerCase() !== newTopic.toLowerCase());
+    updatedTopics.unshift(newTopic);
+    if (updatedTopics.length > 10) {
+      updatedTopics = updatedTopics.slice(0, 10);
+    }
+    setRecentTopics(updatedTopics);
+    await saveRecentTopics(updatedTopics);
   };
 
-  // Handle generating flashcards
-  const handleGenerate = async () => {
+  const handleGenerateTest = async () => {
     if (!topic.trim()) {
       Alert.alert('Validation Error', 'Please enter a topic.');
       return;
     }
+    setLoading(true);
+    setIsSubmitted(false);
+    setQuestions([]);
+    setCurrentQuestionIndex(0);
+    setUserAnswers({});
+    setSelectedSavedTest(null);
 
     try {
-      setLoading(true);
-
-      const response = await fetch(baseUrl + '/chat', {
+      const message = `
+        Generate ${numQuestions} multiple-choice test questions about "${topic}"
+        with difficulty level ${difficulty} on a scale of 1-10.
+        Each question must be on its own line, using the exact format:
+        [question:optionA:optionB:optionC:optionD:correctAnswer]
+      `;
+      const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token.current}`,
+          Authorization: `Bearer ${token.current}`,
         },
-        body: JSON.stringify({
-          message: `Generate ${count} flashcards about '${topic}'. Each flashcard must be on its own line, using the exact format: [question]:[answer]. For example: [What is a tree?]:[A perennial plant with a trunk, branches, and leaves]. Do not include any numbering, bullet points, or extra text. Ensure there are no spaces before or after the colon (':').`,
-        }),
+        body: JSON.stringify({ message }),
       });
+      const data = await response.json();
 
-      const result = await response.json();
-      console.log('Raw response from server:', result.response);
       if (!response.ok) {
-              // Handle different types of errors
-              let errorMessage = result.message || result.error || 'Something went wrong!';
-      
-              if (response.status === 401) {
-                errorMessage = 'Unauthorized! Please log in again.';
-              } else if (response.status === 500) {
-                errorMessage = 'Server error! Please try again later.';
-              }
-      
-              console.error('Error:', errorMessage);
-              Alert.alert('Error', errorMessage);
-            }
-      if (response.ok) {
-        const lines = result.response.split('\n');
+        let errorMessage = data.message || data.error || 'Something went wrong!';
+        if (response.status === 401) {
+          errorMessage = 'Unauthorized! Please log in again.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error! Please try again later.';
+        }
+        console.error('Error:', errorMessage);
+        Alert.alert('Error', errorMessage);
+      }
 
-        const flashcardsArray: Flashcard[] = lines
-          .map((line) => {
-            const trimmed = line.trim();
-            if (!trimmed) return null;
+      if (response.ok && data?.response) {
+        const lines = data.response
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter(Boolean);
 
-            const markerIndex = trimmed.indexOf(']:[');
-            if (markerIndex === -1) return null;
+        const parsedQuestions: TestQuestion[] = lines
+          .map((qLine: string) => {
+            const innerText = qLine.replace(/^\d+\.\s*\[|\]$/g, '');
+            const parts = innerText.split(':');
+            if (parts.length < 6) return null;
+            const [questionText, optA, optB, optC, optD, rawCorrect] = parts;
+            const correctAnswer = rawCorrect.trim().toUpperCase() as keyof TestQuestion['options'];
+            if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) return null;
 
-            const questionPart = trimmed.slice(0, markerIndex + 1);
-            const answerPart = trimmed.slice(markerIndex + 3);
-
-            const question = questionPart.replace(/[\[\]]/g, '').trim();
-            const answer = answerPart.replace(/[\[\]]/g, '').trim();
-
-            return { question, answer };
+            return {
+              question: questionText.trim(),
+              options: {
+                A: optA.trim(),
+                B: optB.trim(),
+                C: optC.trim(),
+                D: optD.trim(),
+              },
+              correctAnswer,
+            };
           })
-          .filter(Boolean) as Flashcard[];
+          .filter(Boolean) as TestQuestion[];
 
-        setFlashcards(flashcardsArray);
-        setCurrentCardIndex(0);
-        // Reset flip animation
-        flipAnim.setValue(0);
-        setIsFront(true);
+        setQuestions(parsedQuestions);
+        setCurrentQuestionIndex(0);
+        setUserAnswers({});
+        setIsSubmitted(false);
 
-        // Save the generated flashcards as a new set
-        const newSet: FlashcardSet = {
+        // Save as a new set
+        const newSet: TestSet = {
           id: Date.now().toString(),
           topic: topic.trim(),
-          count,
+          difficulty,
+          numQuestions,
           createdAt: new Date().toISOString(),
-          flashcards: flashcardsArray,
+          questions: parsedQuestions,
         };
-
-        const updatedSets = [newSet, ...savedFlashcards];
-        setSavedFlashcards(updatedSets);
-        await saveFlashcardSets(updatedSets);
+        const updatedSets = [newSet, ...savedTests];
+        setSavedTests(updatedSets);
+        await saveTestSets(updatedSets);
+        await addToRecentTopics(newSet.topic);
       } else {
-        console.error('Failed to generate flashcards:', result.error || 'Unknown error');
-        Alert.alert('Generation Error', result.error || 'Failed to generate flashcards.');
+        console.error('Failed to generate test:', data.error || 'Unknown error');
+        Alert.alert('Generation Error', data.error || 'Failed to generate test.');
       }
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'An unexpected error occurred while generating flashcards.');
+      console.error('Error generating test:', error);
+      Alert.alert('Error', 'An unexpected error occurred while generating the test.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle navigating to the next flashcard
-  const handleNextCard = () => {
-    if (currentCardIndex < flashcards.length - 1) {
-      setCurrentCardIndex((prev) => prev + 1);
-      // Reset flip animation
-      flipAnim.setValue(0);
-      setIsFront(true);
+  const handleSelectAnswer = (option: keyof TestQuestion['options']) => {
+    if (!isSubmitted) {
+      setUserAnswers((prev) => ({
+        ...prev,
+        [currentQuestionIndex]: option,
+      }));
     }
   };
 
-  // Handle navigating to the previous flashcard
-  const handlePrevCard = () => {
-    if (currentCardIndex > 0) {
-      setCurrentCardIndex((prev) => prev - 1);
-      // Reset flip animation
-      flipAnim.setValue(0);
-      setIsFront(true);
+  const handleNext = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
 
-  // Handle selecting a saved flashcard set
-  const handleSelectSavedSet = (set: FlashcardSet) => {
-    setSelectedSavedSet(set);
-    setFlashcards(set.flashcards);
-    setCurrentCardIndex(0);
-    // Reset flip animation
-    flipAnim.setValue(0);
-    setIsFront(true);
+  const handlePrev = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((prev) => prev - 1);
+    }
   };
 
-  // Handle deleting a saved flashcard set
-  const handleDeleteSavedSet = (setId: string) => {
-    Alert.alert(
-      'Delete Flashcard Set',
-      'Are you sure you want to delete this flashcard set?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updatedSets = savedFlashcards.filter((set) => set.id !== setId);
-            setSavedFlashcards(updatedSets);
-            await saveFlashcardSets(updatedSets);
-            // If the deleted set was selected, reset the current flashcards
-            if (selectedSavedSet?.id === setId) {
-              setSelectedSavedSet(null);
-              setFlashcards([]);
-              setCurrentCardIndex(0);
-              // Reset flip animation
-              flipAnim.setValue(0);
-              setIsFront(true);
-            }
-          },
-        },
-      ]
+  const handleSubmit = () => {
+    setIsSubmitted(true);
+  };
+
+  const renderScore = () => {
+    if (!isSubmitted) return null;
+    let correctCount = 0;
+    questions.forEach((q, idx) => {
+      if (userAnswers[idx] === q.correctAnswer) {
+        correctCount++;
+      }
+    });
+    return (
+      <View style={styles.scoreContainer}>
+        <Text style={[styles.scoreText, isDarkMode ? { color: '#fff' } : {}]}>
+          You scored {correctCount} / {questions.length}
+        </Text>
+      </View>
     );
   };
 
-  const currentCard = flashcards[currentCardIndex] || { question: '', answer: '' };
+  const handleSelectSavedTest = (set: TestSet) => {
+    setSelectedSavedTest(set);
+    setQuestions(set.questions);
+    setCurrentQuestionIndex(0);
+    setUserAnswers({});
+    setIsSubmitted(false);
+  };
+
+  const handleDeleteSavedTest = (setId: string) => {
+    Alert.alert('Delete Test Set', 'Are you sure you want to delete this test set?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updatedSets = savedTests.filter((set) => set.id !== setId);
+          setSavedTests(updatedSets);
+          await saveTestSets(updatedSets);
+          if (selectedSavedTest?.id === setId) {
+            setSelectedSavedTest(null);
+            setQuestions([]);
+            setCurrentQuestionIndex(0);
+            setUserAnswers({});
+            setIsSubmitted(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleSelectRecentTopic = (selectedTopic: string) => {
+    setTopic(selectedTopic);
+    setShowRecentTopics(false);
+  };
+
+  const handleFocusTopic = () => {
+    setShowRecentTopics(true);
+  };
+
+  const handleBlurTopic = () => {
+    setTimeout(() => setShowRecentTopics(false), 100);
+  };
+
+  const currentQuestion = questions[currentQuestionIndex] || {
+    question: '',
+    options: { A: '', B: '', C: '', D: '' },
+    correctAnswer: 'A',
+  };
 
   return (
     <ParallaxScrollView>
-      <ThemedView>
+      <ThemedView style={styles.container}>
         <ThemedText type="title" style={styles.title}>
-          Flashcards Generator
+          Multiple-Choice Exam
         </ThemedText>
         <ThemedText type="subtitle" style={styles.subtitle}>
-                  Example: "Absolutism keywords" or "Beginning of Absolutism"
+          Example: "Absolutism"
         </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
-                  Remember to only ask questions on notes you have uploaded
-        </ThemedText>
-        <TextInput
-          style={[styles.input, isDarkMode ? styles.inputDark : {}]}
-          value={topic}
-          onChangeText={setTopic}
-          placeholder="Enter topic"
-          placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
-        />
 
+        {/* Topic Input */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, isDarkMode ? styles.inputDark : {}]}
+            value={topic}
+            onChangeText={setTopic}
+            placeholder="Enter topic"
+            placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
+            onFocus={handleFocusTopic}
+            onBlur={handleBlurTopic}
+          />
+          {showRecentTopics && recentTopics.length > 0 && (
+            <View
+              style={[
+                styles.recentTopicsContainer,
+                isDarkMode ? styles.recentTopicsContainerDark : {},
+              ]}
+            >
+              {recentTopics.map((t, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.recentTopicItem}
+                  onPress={() => handleSelectRecentTopic(t)}
+                >
+                  <Text style={[styles.recentTopicText, isDarkMode ? { color: '#fff' } : {}]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Pickers for Difficulty and Number of Questions */}
+        <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
+          Difficulty
+        </Text>
         <Picker
-          selectedValue={String(count)}
+          selectedValue={String(difficulty)}
           style={[styles.picker, isDarkMode ? styles.pickerDark : {}]}
-          onValueChange={(itemValue) => setCount(Number(itemValue))}
+          onValueChange={(itemValue) => setDifficulty(Number(itemValue))}
         >
-          {[...Array(20).keys()].map((num) => (
+          {difficulties.map((diff) => (
             <Picker.Item
-              key={num + 1}
-              label={`${num + 1} flashcards`}
-              value={`${num + 1}`}
+              key={diff}
+              label={`Level ${diff}`}
+              value={`${diff}`}
             />
           ))}
         </Picker>
 
+        <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
+          Number of Questions
+        </Text>
+        <Picker
+          selectedValue={String(numQuestions)}
+          style={[styles.picker, isDarkMode ? styles.pickerDark : {}]}
+          onValueChange={(itemValue) => setNumQuestions(Number(itemValue))}
+        >
+          {questionCounts.map((q) => (
+            <Picker.Item
+              key={q}
+              label={`${q} Qs`}
+              value={`${q}`}
+            />
+          ))}
+        </Picker>
+
+        {/* Generate Test Button */}
         <TouchableOpacity
-          style={[styles.generateButton, isDarkMode ? styles.generateButtonDark : {}]}
-          onPress={handleGenerate}
+          style={[styles.buttonGenerate, isDarkMode ? styles.buttonGenerateDark : {}]}
+          onPress={handleGenerateTest}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Generate Flashcards</Text>
+            <Text style={styles.buttonText}>Generate Test</Text>
           )}
         </TouchableOpacity>
-      </ThemedView>
 
-      {/* Saved Flashcards Section */}
-      <ThemedView style={styles.savedSection}>
-        <ThemedText type="subtitle" style={styles.savedTitle}>
-          Saved Flashcard Sets
-        </ThemedText>
-        {savedFlashcards.length === 0 ? (
-          <Text style={[styles.noSavedText, isDarkMode ? { color: '#fff' } : {}]}>
-            No saved flashcard sets.
-          </Text>
-        ) : (
-          savedFlashcards.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.savedSetItem,
-                isDarkMode ? styles.savedSetItemDark : {},
-              ]}
-              onPress={() => handleSelectSavedSet(item)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.savedSetTitle, isDarkMode ? { color: '#fff' } : {}]}>
-                  {item.topic}
-                </Text>
-                <Text style={[styles.savedSetDetails, isDarkMode ? { color: '#ccc' } : {}]}>
-                  {item.count} flashcards • {new Date(item.createdAt).toLocaleString()}
-                </Text>
-              </View>
+        {/* Saved Test Sets */}
+        <ThemedView style={styles.savedSection}>
+          <ThemedText type="subtitle" style={styles.savedTitle}>
+            Saved Test Sets
+          </ThemedText>
+          {savedTests.length === 0 ? (
+            <Text style={[styles.noSavedText, isDarkMode ? { color: '#fff' } : {}]}>
+              No saved test sets.
+            </Text>
+          ) : (
+            savedTests.map((item) => (
               <TouchableOpacity
-                onPress={() => handleDeleteSavedSet(item.id)}
-                style={styles.deleteButton}
+                key={item.id}
+                style={[
+                  styles.savedSetItem,
+                  isDarkMode ? styles.savedSetItemDark : {},
+                ]}
+                onPress={() => handleSelectSavedTest(item)}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.savedSetTitle, isDarkMode ? { color: '#fff' } : {}]}>
+                    {item.topic}
+                  </Text>
+                  <Text style={[styles.savedSetDetails, isDarkMode ? { color: '#ccc' } : {}]}>
+                    Difficulty: {item.difficulty} • {item.numQuestions} questions •{' '}
+                    {new Date(item.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteSavedTest(item.id)} style={styles.deleteButton}>
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          ))
+            ))
+          )}
+        </ThemedView>
+
+        {/* Test Question UI */}
+        {questions.length > 0 && (
+          <View style={styles.testContainer}>
+            <Text style={[styles.counterText, isDarkMode ? { color: '#fff' } : {}]}>
+              Question {currentQuestionIndex + 1} of {questions.length}
+            </Text>
+
+            <View
+              style={[
+                styles.questionContainer,
+                isDarkMode ? styles.questionContainerDark : {},
+              ]}
+            >
+              <Text style={[styles.questionText, { color: isDarkMode ? '#fff' : '#000' }]}>
+                {currentQuestion.question}
+              </Text>
+            </View>
+
+            <View style={styles.optionsContainer}>
+              {Object.entries(currentQuestion.options).map(([key, val]) => {
+                const isSelected = userAnswers[currentQuestionIndex] === key;
+                const isCorrect =
+                  isSubmitted && key === currentQuestion.correctAnswer;
+                const isWrongSelection =
+                  isSubmitted && isSelected && key !== currentQuestion.correctAnswer;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.optionButton,
+                      isDarkMode ? styles.optionButtonDark : {},
+                      isSelected && !isSubmitted ? styles.optionSelected : {},
+                      isCorrect ? styles.optionCorrect : {},
+                      isWrongSelection ? styles.optionWrong : {},
+                    ]}
+                    onPress={() =>
+                      handleSelectAnswer(key as keyof TestQuestion['options'])
+                    }
+                  >
+                    <Text style={[styles.optionText, isDarkMode ? { color: '#fff' } : {}]}>
+                      {key}) {val}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.navButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  isDarkMode ? styles.navButtonDark : {},
+                  { marginRight: 8 },
+                ]}
+                onPress={handlePrev}
+                disabled={currentQuestionIndex <= 0}
+              >
+                <Text style={styles.navButtonText}>Back</Text>
+              </TouchableOpacity>
+              {currentQuestionIndex < questions.length - 1 && (
+                <TouchableOpacity
+                  style={[styles.navButton, isDarkMode ? styles.navButtonDark : {}]}
+                  onPress={handleNext}
+                >
+                  <Text style={styles.navButtonText}>Next</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {currentQuestionIndex === questions.length - 1 && !isSubmitted && (
+              <TouchableOpacity
+                style={[
+                  styles.buttonSubmit,
+                  isDarkMode ? styles.buttonSubmitDark : {},
+                  { marginTop: 12, paddingHorizontal: 16, paddingVertical: 16 },
+                ]}
+                onPress={handleSubmit}
+              >
+                <Text style={styles.buttonText}>Submit Test</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Score */}
+            {renderScore()}
+          </View>
         )}
       </ThemedView>
-
-      {/* Flashcards Display Section */}
-      {flashcards.length > 0 && (
-        <View style={styles.cardContainer}>
-          <Text style={[styles.counterText, isDarkMode ? { color: '#fff' } : {}]}>
-            Card {currentCardIndex + 1} of {flashcards.length}
-          </Text>
-
-          {/* Wrap the entire flashcard with TouchableWithoutFeedback */}
-          <TouchableWithoutFeedback onPress={flipCard}>
-            <View style={styles.flipCardContainer}>
-              {/* Front Side */}
-              <Animated.View
-                style={[
-                  styles.card,
-                  isDarkMode ? styles.cardDark : {},
-                  frontAnimatedStyle,
-                  {
-                    backfaceVisibility: 'hidden',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                  },
-                ]}
-              >
-                <Text
-                  style={[styles.cardText, isDarkMode ? styles.cardTextDark : {}]}
-                >
-                  {currentCard.question}
-                </Text>
-              </Animated.View>
-
-              {/* Back Side */}
-              <Animated.View
-                style={[
-                  styles.card,
-                  isDarkMode ? styles.cardDark : {},
-                  styles.cardBack,
-                  backAnimatedStyle,
-                  {
-                    backfaceVisibility: 'hidden',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                  },
-                ]}
-              >
-                <Text
-                  style={[styles.cardText, isDarkMode ? styles.cardTextDark : {}]}
-                >
-                  {currentCard.answer}
-                </Text>
-              </Animated.View>
-            </View>
-          </TouchableWithoutFeedback>
-
-          <View style={styles.navButtonsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                isDarkMode ? styles.navButtonDark : {},
-                { marginRight: 8 },
-              ]}
-              onPress={handlePrevCard}
-              disabled={currentCardIndex <= 0}
-            >
-              <Text style={styles.navButtonText}>Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.navButton, isDarkMode ? styles.navButtonDark : {}]}
-              onPress={handleNextCard}
-              disabled={currentCardIndex >= flashcards.length - 1}
-            >
-              <Text style={styles.navButtonText}>Next</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    padding: 15,
+    marginBottom: 16,
+  },
   title: {
     textAlign: 'center',
     marginVertical: 16,
     fontSize: 32,
     fontWeight: 'bold',
   },
+  subtitle: {
+    textAlign: 'center',
+    marginVertical: 0,
+    paddingBottom: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  inputContainer: {
+    marginHorizontal: 16,
+    position: 'relative',
+  },
   input: {
-    margin: 16,
     padding: 12,
     borderRadius: 8,
     borderColor: '#ddd',
     borderWidth: 1,
     backgroundColor: '#f0f0f0',
+    zIndex: 1,
   },
   inputDark: {
     borderColor: '#555',
     backgroundColor: '#555',
     color: '#fff',
+  },
+  recentTopicsContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    maxHeight: 150,
+    zIndex: 2,
+  },
+  recentTopicsContainerDark: {
+    backgroundColor: '#444',
+    borderColor: '#555',
+  },
+  recentTopicItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  recentTopicText: {
+    fontSize: 16,
+  },
+  pickerLabel: {
+    marginLeft: 16,
+    marginBottom: 4,
+    marginTop: 8,
+    fontSize: 16,
   },
   picker: {
     marginHorizontal: 16,
@@ -467,93 +595,18 @@ const styles = StyleSheet.create({
   pickerDark: {
     color: '#fff',
   },
-  generateButton: {
+  buttonGenerate: {
     backgroundColor: '#007bff',
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 16,
     marginBottom: 16,
   },
-  generateButtonDark: {
+  buttonGenerateDark: {
     backgroundColor: '#0056b3',
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  loadingText: {
-    marginTop: 8,
-    fontSize: 16,
-    color: '#333',
-  },
-  cardContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  counterText: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
-  },
-  flipCardContainer: {
-    width: 250,
-    height: 180,
-    marginBottom: 16,
-    // To make sure the flip works correctly on Android
-    backfaceVisibility: 'hidden',
-  },
-  card: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#e9ecef',
-    borderRadius: 8,
-    backfaceVisibility: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Removed position: 'absolute' as it's handled in component
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardDark: {
-    backgroundColor: '#444',
-    shadowColor: '#000',
-  },
-  cardBack: {
-    // rotateY is handled by backAnimatedStyle
-  },
-  cardText: {
-    fontSize: 18,
-    color: '#333',
-    textAlign: 'center',
-    marginHorizontal: 20,
-  },
-  cardTextDark: {
-    color: '#fff',
-  },
-  navButtonsContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  navButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  navButtonDark: {
-    backgroundColor: '#218838',
-  },
-  navButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
@@ -600,11 +653,93 @@ const styles = StyleSheet.create({
     color: '#dc3545',
     fontWeight: 'bold',
   },
-  subtitle: {
+  testContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  counterText: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#333',
     textAlign: 'center',
-    marginVertical: 0,
-    paddingBottom: 16,
-    fontSize: 16, // Added for better readability
-    color: '#666', // Default color
+  },
+  questionContainer: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    width: '100%',
+  },
+  questionContainerDark: {
+    backgroundColor: '#555',
+  },
+  questionText: {
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  optionsContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  optionButton: {
+    marginVertical: 6,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#e9ecef',
+  },
+  optionButtonDark: {
+    backgroundColor: '#555',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  optionSelected: {
+    borderWidth: 2,
+    borderColor: '#007bff',
+  },
+  optionCorrect: {
+    backgroundColor: '#28a745',
+  },
+  optionWrong: {
+    backgroundColor: '#dc3545',
+  },
+  navButtonsContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  navButton: {
+    backgroundColor: '#17a2b8',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    paddingBottom: 12,
+  },
+  navButtonDark: {
+    backgroundColor: '#138496',
+  },
+  navButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonSubmit: {
+    backgroundColor: '#ffc107',
+    alignItems: 'center',
+    borderRadius: 8,
+    width: '100%',
+  },
+  buttonSubmitDark: {
+    backgroundColor: '#e0a800',
+  },
+  scoreContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
