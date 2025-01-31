@@ -282,6 +282,9 @@ export default function FlashcardsScreen() {
         <ThemedText type="subtitle" style={styles.subtitle}>
                   Example: "Absolutism keywords" or "Beginning of Absolutism"
         </ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+                  Remember to only ask questions on notes you have uploaded
+        </ThemedText>
         <TextInput
           style={[styles.input, isDarkMode ? styles.inputDark : {}]}
           value={topic}
