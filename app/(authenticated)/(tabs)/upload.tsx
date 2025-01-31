@@ -51,7 +51,7 @@ export default function DocumentUploader() {
       console.warn('Cannot fetch files: userName is null');
       return;
     }
-
+  
     try {
       const response = await axios.get<FileRecord[]>(
         `${apiUrl}/files/${userName}`,
@@ -61,10 +61,18 @@ export default function DocumentUploader() {
           },
         }
       );
+  
+      if (response.status !== 200) {
+        throw new Error('Unexpected server response');
+      }
+  
       setUserFiles(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching files:', err);
-      Alert.alert('Error', 'Could not fetch files.');
+      Alert.alert(
+        'Error',
+        err.response?.data?.error || 'Could not fetch files. Please try again.'
+      );
     }
   };
 

@@ -45,7 +45,21 @@ export default function HomeScreen() {
         body: JSON.stringify({ message: text }),
       });
       const result = await response.json();
-  
+      
+      if (!response.ok) {
+        // Handle different types of errors
+        let errorMessage = result.message || result.error || 'Something went wrong!';
+
+        if (response.status === 401) {
+          errorMessage = 'Unauthorized! Please log in again.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error! Please try again later.';
+        }
+
+        console.error('Error:', errorMessage);
+        Alert.alert('Error', errorMessage);
+      }
+
       if (response.ok) {
         setBotResponse(result.response); // Update bot response
         setText(''); // Clear the text input
