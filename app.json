@@ -13,8 +13,10 @@
       "infoPlist": {
         "NSDocumentsFolderUsageDescription": "This app requires access to your files to upload documents.",
         "NSPhotoLibraryUsageDescription": "This app requires access to your photo library to upload files.",
-        "NSPhotoLibraryAddUsageDescription": "This app needs permission to add files to your photo library."
-      }
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to add files to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.neelprasad.ScholarSphere"
     },
     "android": {
       "permissions": [
@@ -49,6 +51,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2fc332ef-ee4b-479b-be65-e4156d8e0da8"
+      }
     }
   }
 }
