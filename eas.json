@@ -19,5 +19,4 @@
   "submit": {
     "production": {}
   },
-  "requireCommit": true
 }
