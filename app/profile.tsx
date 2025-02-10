@@ -118,7 +118,7 @@ export default function Profile() {
           ]}
           onPress={() => {
             // Open a link to the privacy policy
-            Linking.openURL('https://www.termsfeed.com/live/c647ace4-3ae9-46f8-b2bd-131cd43df439');
+            Linking.openURL('https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab');
           }}
         >
           <MaterialIcons
