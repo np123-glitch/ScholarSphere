@@ -16,6 +16,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "mob.pravin.prasad@gmail.com",
+        "ascAppId": "6741691999",
+        "appleTeamId": "X224SYU7W6"
+      }
+    }
   }
 }
