@@ -281,7 +281,7 @@ def list_user_files(current_user, username):
 
     file_list = []
     for fname in os.listdir(user_upload_dir):
-        file_url = f"http://192.168.1.245:5000/files/{username}/{fname}"
+        file_url = f"http://scholarsphere.anythingnew.today/files/{username}/{fname}"
         file_list.append({
             "fileName": fname,
             "url": file_url
