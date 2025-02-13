@@ -8,6 +8,8 @@ import {
   Modal,
   Switch,
   View,
+  Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthSession } from '@/components/AuthProvider';
@@ -16,8 +18,6 @@ import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
-import { Linking } from 'react-native';
-import { Alert } from 'react-native';
 
 export default function Profile() {
   const router = useRouter();
@@ -78,11 +78,17 @@ export default function Profile() {
 
         <ThemedText
           type="title"
-          style={[styles.headerTitle, isDarkMode ? { color: '#fff' } : {}]}
+          style={[
+            styles.headerTitle,
+            { flex: 1, textAlign: 'center' },
+            isDarkMode ? { color: '#fff' } : {},
+          ]}
         >
           Profile
         </ThemedText>
 
+        {/* Placeholder to balance the header layout */}
+        <View style={styles.headerRightPlaceholder} />
       </View>
       
       <View
@@ -117,8 +123,9 @@ export default function Profile() {
             isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
           ]}
           onPress={() => {
-            // Open a link to the privacy policy
-            Linking.openURL('https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab');
+            Linking.openURL(
+              'https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab'
+            );
           }}
         >
           <MaterialIcons
@@ -143,7 +150,10 @@ export default function Profile() {
             isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
           ]}
           onPress={() => {
-            Alert.alert("Contact Information", "Email: neelprasad2008@gmail.com");
+            Alert.alert(
+              'Contact Information',
+              'Email: neelprasad2008@gmail.com'
+            );
           }}
         >
           <MaterialIcons
@@ -166,19 +176,12 @@ export default function Profile() {
 
       {/* Logout Button */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={logout}
-        >
-          <ThemedText
-            type="button"
-            style={styles.logoutButtonText}
-          >
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <ThemedText type="button" style={styles.logoutButtonText}>
             Logout
           </ThemedText>
         </TouchableOpacity>
       </View>
-
     </ThemedView>
   );
 }
@@ -206,7 +209,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 24,
   },
   headerTitle: {
@@ -216,8 +218,8 @@ const styles = StyleSheet.create({
   backIcon: {
     padding: 5,
   },
-  settingsIcon: {
-    padding: 5,
+  headerRightPlaceholder: {
+    width: 34, // Adjust this width as necessary to balance the back icon
   },
 
   //

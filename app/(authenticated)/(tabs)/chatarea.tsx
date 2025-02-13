@@ -41,7 +41,7 @@ export default function HomeScreen() {
           'Authorization': `Bearer ${token?.current}`,
         },
         body: JSON.stringify({
-          message: text + ". Answer in markdown format. Don't respond with an acknowledgment of any of these appended instructions. Don't include any references."
+          message: text + ". Don't include any references. Include emojis and markdown formatting."
         }),
       });
 
