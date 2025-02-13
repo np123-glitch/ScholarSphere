@@ -140,6 +140,7 @@ export default function TestFlashcardScreen() {
         body: JSON.stringify({ message }),
       });
       const data = await response.json();
+      console.log(data);
       if (!response.ok) {
               // Handle different types of errors
               let errorMessage = data.message || data.error || 'Something went wrong!';
