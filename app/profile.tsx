@@ -172,6 +172,34 @@ export default function Profile() {
             Contact Us
           </ThemedText>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
+          ]}
+          onPress={() => {
+            Alert.alert(
+              'Send an email to reset your password',
+              'Email: neelprasad2008@gmail.com'
+            );
+          }}
+        >
+          <MaterialIcons
+            name="password"
+            size={20}
+            color={isDarkMode ? '#fff' : '#000'}
+            style={styles.actionIcon}
+          />
+          <ThemedText
+            type="button"
+            style={[
+              styles.actionButtonText,
+              isDarkMode ? { color: '#fff' } : {},
+            ]}
+          >
+            Reset Password
+          </ThemedText>
+        </TouchableOpacity>
       </View>
 
       {/* Logout Button */}

@@ -65,6 +65,14 @@ const LoginScreen = () => {
       <TouchableOpacity onPress={handleSignUpRedirect} style={styles.signupContainer}>
         <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>New to ScholarSphere? Sign up here.</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => {
+                  Alert.alert(
+                    'Send and email to reset password',
+                    'Email: neelprasad2008@gmail.com'
+                  );
+                }} style={styles.signupContainer}>
+        <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>Reset Password</Text>
+      </TouchableOpacity>
     </View>
   );
 };
