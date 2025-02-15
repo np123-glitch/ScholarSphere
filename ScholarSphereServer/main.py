@@ -21,8 +21,8 @@ CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "
 
 SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
 
-pc = Pinecone(api_key="pcsk_6UCVz9_E8Nyoiconp2u2i654vS5XZSmDXzbNfYxC4aQHdGCn8f6XJuTZ7Tp9UTzuH6CtHu")
-assistant = pc.assistant.Assistant(assistant_name="scholarsphere-assistant")
+pc = Pinecone(api_key="pcsk_3eNXoj_2fMMzVFpuLpaz414Ua5hcJrDiBiN3iywg2eW4rejonebqZGkqGh86QaPM4p1522")
+assistant = pc.assistant.Assistant(assistant_name="official-assistant")
 
 USERS_FILE = 'users.json'
 if not os.path.exists(USERS_FILE):
