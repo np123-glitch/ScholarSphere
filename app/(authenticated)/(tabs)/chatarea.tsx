@@ -50,14 +50,11 @@ export default function HomeScreen() {
       if (!response.ok) {
         let errorMessage = result.message || result.error || 'Something went wrong!';
 
-        if (response.status === 401) {
-          errorMessage = 'Unauthorized! Please log in again.';
-        } else if (response.status === 500) {
-          errorMessage = 'Server error! Please try again later.';
+        if (result.message === 'Token has expired!') {
+          Alert.alert('Session Expired', 'Your session has expired. Please log out and log in again.');
+        } else {
+          Alert.alert('Error', errorMessage);
         }
-
-        console.error('Error:', errorMessage);
-        Alert.alert('Error', errorMessage);
       } else {
         setBotResponse(result.response); // Update bot response
         setText(''); // Clear the text input

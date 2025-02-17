@@ -189,11 +189,13 @@ export default function FlashcardsScreen() {
         setSavedFlashcards(updatedSets);
         await saveFlashcardSets(updatedSets);
       } else {
-        console.error('Failed to generate flashcards:', result.error || 'Unknown error');
-        Alert.alert('Generation Error', result.error || 'Failed to generate flashcards.');
+        if (result.message === 'Token has expired!') {
+                  Alert.alert('Session Expired', 'Your session has expired. Please log out and log in again.');
+                } else {
+                  Alert.alert('Error', result.message);
+                }
       }
     } catch (error) {
-      console.error('Error:', error);
       Alert.alert('Error', 'An unexpected error occurred while generating flashcards.');
     } finally {
       setLoading(false);
