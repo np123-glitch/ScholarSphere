@@ -15,12 +15,10 @@ import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from pypdf import PdfReader
-from logger import Logger
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
 
-logger = Logger("app.log")
 
 SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
 
@@ -51,7 +49,6 @@ def save_users(users):
 def add_user(username, email, password, realname, roles=["user"]):
     users = load_users()
     if username in users:
-        logger.info(f"{username} already exists")
         raise ValueError("Username already exists")
     
     hashed_password = generate_password_hash(password)
