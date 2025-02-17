@@ -1,5 +1,3 @@
-// src/screens/RegisterScreen.tsx
-
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert, useColorScheme } from 'react-native';
 import { useAuthSession } from '@/components/AuthProvider';
@@ -15,31 +13,27 @@ const RegisterScreen = () => {
   const [realname, setRealName] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuthSession();
-  
-
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
 
   const handleLoginRedirect = () => {
-    router.navigate('./login')
-  }
+    router.push('/login');
+  };
 
   const handleRegister = async () => {
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim() || !realname.trim()) {
       Alert.alert('Validation Error', 'Please fill out all fields.');
       return;
     }
-
     if (password !== confirmPassword) {
       Alert.alert('Validation Error', 'Passwords do not match.');
       return;
     }
-
     setLoading(true);
     try {
-      await signUp(username, email, password, realname); 
+      await signUp(username, email, password, realname);
       Alert.alert('Success', 'Account created successfully!');
-      router.replace('../LoginScreen'); 
+      router.push('/login');
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message);
     } finally {
@@ -90,14 +84,13 @@ const RegisterScreen = () => {
         onChangeText={setConfirmPassword}
         secureTextEntry
       />
-      
       {loading ? (
         <ActivityIndicator size="large" color="#007bff" />
       ) : (
         <Button title="Register" onPress={handleRegister} color="#007bff" />
       )}
       <TouchableOpacity onPress={handleLoginRedirect} style={styles.signupContainer}>
-              <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>Already have an accout? Login here.</Text>
+        <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>Already have an accout? Login here.</Text>
       </TouchableOpacity>
     </View>
   );
