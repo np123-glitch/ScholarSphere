@@ -14,7 +14,15 @@
         "NSDocumentsFolderUsageDescription": "This app requires access to your files to upload documents.",
         "NSPhotoLibraryUsageDescription": "This app requires access to your photo library to upload files.",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to add files to your photo library.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSTemporaryExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
       },
       "bundleIdentifier": "com.neelprasad.ScholarSphere"
     },
