@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
+import Config from '@/components/Config';
 
 export default function Profile() {
   const router = useRouter();
@@ -54,6 +55,44 @@ export default function Profile() {
   const logout = () => {
     signOut();
     router.replace('/login'); // Redirect to login after logout
+  };
+
+  const deleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              const response = await fetch(
+                `${Config.API_BASE_URL}/auth/delete-account`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token.current}`,
+                  },
+                }
+              )
+              if (response.ok) {
+                signOut();
+                Alert.alert('Success', 'Account deleted successfully.');
+                router.replace('./login');
+              }
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account.');
+            }
+        }
+        }
+      ]
+    )
+
   };
 
   return (
@@ -209,6 +248,11 @@ export default function Profile() {
             Logout
           </ThemedText>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutButton} onPress={deleteAccount}>
+          <ThemedText type="button" style={styles.logoutButtonText}>
+            Delete Account
+          </ThemedText>
+        </TouchableOpacity>
       </View>
     </ThemedView>
   );
@@ -327,6 +371,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 8,
     backgroundColor: '#ff4d4d',
+    marginBottom: 20,
   },
   logoutButtonText: {
     color: '#fff',
