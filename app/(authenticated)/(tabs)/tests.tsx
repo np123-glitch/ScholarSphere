@@ -130,6 +130,16 @@ export default function TestFlashcardScreen() {
         with difficulty level ${difficulty} on a scale of 1-10.
         Each question must be on its own line, using the exact format:
         [question:optionA:optionB:optionC:optionD:correctAnswer]
+        Do not include any explanations or explanations in the questions. 
+        
+        For example a response for 5 questions would be 
+        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
+        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
+        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
+        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
+        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
+        Do not include any additional text in your response such as a question number or a reference to the text.
+
       `;
       const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',
@@ -159,9 +169,10 @@ export default function TestFlashcardScreen() {
           .split('\n')
           .map((line: string) => line.trim())
           .filter(Boolean);
-        const parsedQuestions: TestQuestion[] = lines
+          const parsedQuestions: TestQuestion[] = lines
           .map((qLine: string) => {
-            const innerText = qLine.replace(/^\d+\.\s*\[|\]$/g, '');
+            // Remove a leading '[' and a trailing ']' if they exist.
+            const innerText = qLine.replace(/^\[|\]$/g, '');
             const parts = innerText.split(':');
             if (parts.length < 6) return null;
             const [questionText, optA, optB, optC, optD, rawCorrect] = parts;
