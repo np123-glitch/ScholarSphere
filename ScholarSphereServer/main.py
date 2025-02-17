@@ -15,9 +15,12 @@ import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from pypdf import PdfReader
+from logger import Logger
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
+
+logger = Logger("app.log")
 
 SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
 
@@ -48,6 +51,7 @@ def save_users(users):
 def add_user(username, email, password, realname, roles=["user"]):
     users = load_users()
     if username in users:
+        logger.info(f"{username} already exists")
         raise ValueError("Username already exists")
     
     hashed_password = generate_password_hash(password)
@@ -146,6 +150,12 @@ def process_and_upload(filepath, assistant, current_user):
             shutil.rmtree('./output')
         except Exception as cleanup_error:
             print(f"Error during cleanup for {filepath}: {cleanup_error}")
+
+def delete_user(username):
+    users = load_users()
+    if username in users:
+        del users[username]
+        save_users(users)
 
 @app.route('/')
 def index():
@@ -255,6 +265,17 @@ def signup():
             return jsonify({'message': 'An error occurred during signup.'}), 500
 
     return jsonify({'message': 'Invalid request method'}), 405
+
+@app.route('/auth/delete-account', methods=['POST'])
+@token_required
+def delete_account(current_user):
+    if request.method == 'POST':
+        try:
+            delete_user(current_user)
+            return jsonify({'message': 'Account deleted successfully!'}), 200
+        except Exception as e:
+            print(f"An error occurred during account deletion: {e}")
+            return jsonify({'message': 'An error occurred during account deletion. Please try again later or contact support.'}), 500
 
 @app.route('/feedback', methods=['POST'])
 @token_required
