@@ -200,6 +200,7 @@ def chat(current_user):
         user_message = data.get('message', '')
         prompt = f"You are a helpful assistant. A user said: '{user_message}'. Please respond to the user's message directly. If you don't have a reference for the answer, say 'I don't know the answer to that question.'"
         bot_response = send_message(prompt, assistant, current_user)
+        print(f"Bot response: {bot_response}")
         return jsonify({'response': bot_response}), 200
 
     return jsonify({'error': 'Invalid request method'}), 405
