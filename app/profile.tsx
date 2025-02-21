@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  Switch,
   View,
   Alert,
   Linking,
@@ -18,7 +16,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
+import { decodeJwt } from '@/utils/decodeJwt';
 import Config from '@/components/Config';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,16 +28,10 @@ export default function Profile() {
   const { signOut, token } = useAuthSession();
 
   const [userName, setUserName] = useState<string | null>(null);
-  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [profilePic, setProfilePic] = useState<string | null>(null);
 
-  // Toggle theme handler
-  const toggleTheme = () => {
-    setIsDarkMode((prevMode) => !prevMode);
-  };
-
-  // Load stored profile picture from AsyncStorage
+  // Load stored profile picture URL from AsyncStorage
   useEffect(() => {
     const loadProfilePic = async () => {
       try {
@@ -61,7 +53,7 @@ export default function Profile() {
     if (token.current) {
       const decodedToken = decodeJwt(token.current);
       if (decodedToken) {
-        setUserName(decodedToken.name || decodedToken.sub); // Use 'name' if available, otherwise 'sub'
+        setUserName(decodedToken.name || decodedToken.sub);
       } else {
         setUserName(null);
       }
@@ -72,68 +64,95 @@ export default function Profile() {
     }
   }, [token]);
 
-  // Handle Logout
-  const logout = () => {
-    signOut();
-    router.replace('/login'); // Redirect to login after logout
+  const toggleTheme = () => {
+    setIsDarkMode((prevMode) => !prevMode);
   };
 
-  const deleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              const response = await fetch(
-                `${Config.API_BASE_URL}/auth/delete-account`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${token.current}`,
-                  },
-                }
-              );
-              if (response.ok) {
-                signOut();
-                Alert.alert('Success', 'Account deleted successfully.');
-                router.replace('./login');
-              }
-            } catch (error) {
-              console.error('Error deleting account:', error);
-              Alert.alert('Error', 'Failed to delete account.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Handle profile picture change
   const pickProfilePicture = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1], // Ensures a square crop
+        aspect: [1, 1],
         quality: 1,
       });
-
-      if (!result.cancelled) {
-        // Update state and store the selected image URI
-        setProfilePic(result.uri);
-        await AsyncStorage.setItem('profilePicture', result.uri);
+  
+      // For newer versions of expo-image-picker, check result.assets
+      if (!result.cancelled && result.assets && result.assets.length > 0) {
+        const localUri = result.assets[0].uri;
+        const filename = localUri.split('/').pop() || 'profile.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image';
+  
+        // Create FormData to send the image file
+        let formData = new FormData();
+        formData.append('file', {
+          uri: localUri,
+          name: filename,
+          type: type,
+        } as any);
+  
+        // Upload the profile picture to the new endpoint
+        const response = await fetch(
+          `${Config.API_BASE_URL}/upload-profile-picture`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${token.current}`,
+            },
+            body: formData,
+          }
+        );
+        const data = await response.json();
+        if (response.ok) {
+          setProfilePic(data.url);
+          await AsyncStorage.setItem('profilePicture', data.url);
+        } else {
+          console.error(data.message);
+          Alert.alert('Upload Error', data.message || 'Failed to upload profile picture.');
+        }
       }
     } catch (error) {
-      console.error('Error picking profile picture:', error);
-      Alert.alert('Error', 'Failed to pick image.');
+      console.error('Error picking or uploading profile picture:', error);
+      Alert.alert('Error', 'Failed to pick or upload image.');
     }
+  };
+  
+
+  const logout = () => {
+    signOut();
+    router.replace('/login');
+  };
+
+  const deleteAccount = () => {
+    Alert.alert('Delete Account', 'Are you sure you want to delete your account?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        onPress: async () => {
+          try {
+            const response = await fetch(`${Config.API_BASE_URL}/auth/delete-account`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token.current}`,
+              },
+            });
+            if (response.ok) {
+              signOut();
+              Alert.alert('Success', 'Account deleted successfully.');
+              router.replace('./login');
+            }
+          } catch (error) {
+            console.error('Error deleting account:', error);
+            Alert.alert('Error', 'Failed to delete account.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -149,34 +168,20 @@ export default function Profile() {
           onPress={() => router.navigate('/(authenticated)/(tabs)')}
           accessibilityLabel="Go Back"
         >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={isDarkMode ? '#fff' : '#000'}
-          />
+          <Ionicons name="arrow-back" size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
 
         <ThemedText
           type="title"
-          style={[
-            styles.headerTitle,
-            { flex: 1, textAlign: 'center' },
-            isDarkMode ? { color: '#fff' } : {},
-          ]}
+          style={[styles.headerTitle, { flex: 1, textAlign: 'center' }, isDarkMode ? { color: '#fff' } : {}]}
         >
           Profile
         </ThemedText>
 
-        {/* Placeholder to balance the header layout */}
         <View style={styles.headerRightPlaceholder} />
       </View>
 
-      <View
-        style={[
-          styles.userCard,
-          isDarkMode ? styles.userCardDark : styles.userCardLight,
-        ]}
-      >
+      <View style={[styles.userCard, isDarkMode ? styles.userCardDark : styles.userCardLight]}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#007AFF" />
         ) : (
@@ -184,23 +189,12 @@ export default function Profile() {
             {profilePic ? (
               <Image source={{ uri: profilePic }} style={styles.profileImage} />
             ) : (
-              <Ionicons
-                name="person-circle"
-                size={100}
-                color={isDarkMode ? '#fff' : '#000'}
-                style={styles.userIcon}
-              />
+              <Ionicons name="person-circle" size={100} color={isDarkMode ? '#fff' : '#000'} style={styles.userIcon} />
             )}
-            <ThemedText
-              type="name"
-              style={[styles.userName, isDarkMode ? { color: '#fff' } : {}]}
-            >
+            <ThemedText type="name" style={[styles.userName, isDarkMode ? { color: '#fff' } : {}]}>
               {userName || 'User'}
             </ThemedText>
-            <TouchableOpacity
-              style={styles.changePicButton}
-              onPress={pickProfilePicture}
-            >
+            <TouchableOpacity style={styles.changePicButton} onPress={pickProfilePicture}>
               <ThemedText type="button" style={styles.changePicButtonText}>
                 Change Profile Picture
               </ThemedText>
@@ -209,93 +203,43 @@ export default function Profile() {
         )}
       </View>
 
+      {/* Other action buttons and footer remain unchanged */}
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
-          ]}
+          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
           onPress={() => {
-            Linking.openURL(
-              'https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab'
-            );
+            Linking.openURL('https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab');
           }}
         >
-          <MaterialIcons
-            name="link"
-            size={20}
-            color={isDarkMode ? '#fff' : '#000'}
-            style={styles.actionIcon}
-          />
-          <ThemedText
-            type="button"
-            style={[
-              styles.actionButtonText,
-              isDarkMode ? { color: '#fff' } : {},
-            ]}
-          >
+          <MaterialIcons name="link" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
+          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
             Privacy Policy
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
-          ]}
+          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
           onPress={() => {
-            Alert.alert(
-              'Contact Information',
-              'Email: neelprasad2008@gmail.com'
-            );
+            Alert.alert('Contact Information', 'Email: neelprasad2008@gmail.com');
           }}
         >
-          <MaterialIcons
-            name="email"
-            size={20}
-            color={isDarkMode ? '#fff' : '#000'}
-            style={styles.actionIcon}
-          />
-          <ThemedText
-            type="button"
-            style={[
-              styles.actionButtonText,
-              isDarkMode ? { color: '#fff' } : {},
-            ]}
-          >
+          <MaterialIcons name="email" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
+          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
             Contact Us
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isDarkMode ? styles.actionButtonDark : styles.actionButtonLight,
-          ]}
+          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
           onPress={() => {
-            Alert.alert(
-              'Send an email to reset your password',
-              'Email: neelprasad2008@gmail.com'
-            );
+            Alert.alert('Send an email to reset your password', 'Email: neelprasad2008@gmail.com');
           }}
         >
-          <MaterialIcons
-            name="password"
-            size={20}
-            color={isDarkMode ? '#fff' : '#000'}
-            style={styles.actionIcon}
-          />
-          <ThemedText
-            type="button"
-            style={[
-              styles.actionButtonText,
-              isDarkMode ? { color: '#fff' } : {},
-            ]}
-          >
+          <MaterialIcons name="password" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
+          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
             Reset Password
           </ThemedText>
         </TouchableOpacity>
       </View>
 
-      {/* Logout and Delete Account Buttons */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <ThemedText type="button" style={styles.logoutButtonText}>
@@ -313,9 +257,6 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  //
-  // ------------------- Main container styles -------------------
-  //
   container: {
     padding: 20,
     paddingTop: 60,
@@ -328,10 +269,6 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#111',
   },
-
-  //
-  // ------------------- Header styles -------------------
-  //
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -345,22 +282,15 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   headerRightPlaceholder: {
-    width: 34, // Adjust this width as necessary to balance the back icon
+    width: 34,
   },
-
-  //
-  // ------------------- User Card styles -------------------
-  //
   userCard: {
     alignItems: 'center',
     padding: 20,
     borderRadius: 12,
     marginBottom: 30,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -392,10 +322,6 @@ const styles = StyleSheet.create({
     color: '#007bff',
     textDecorationLine: 'underline',
   },
-
-  //
-  // ------------------- Action Buttons styles -------------------
-  //
   actionButtonsContainer: {
     alignItems: 'center',
     marginBottom: 30,
@@ -422,10 +348,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-
-  //
-  // ------------------- Footer styles -------------------
-  //
   footer: {
     alignItems: 'center',
     marginTop: 0,
@@ -438,62 +360,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  //
-  // ------------------- Modal styles -------------------
-  //
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '80%',
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalContentLight: {
-    backgroundColor: '#fff',
-  },
-  modalContentDark: {
-    backgroundColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  modalTextLight: {
-    color: '#000',
-  },
-  modalTextDark: {
-    color: '#fff',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 10,
-  },
-  toggleLabel: {
-    fontSize: 18,
-  },
-  closeButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  closeButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

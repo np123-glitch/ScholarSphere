@@ -344,6 +344,41 @@ def get_assistant_files(current_user, username):
         print(f"Error retrieving assistant files: {e}")
         return jsonify({"error": "Could not retrieve files"}), 500
 
+@app.route('/upload-profile-picture', methods=['POST'])
+@token_required
+def upload_profile_picture(current_user):
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'error': 'No file part in the request'}), 400
+
+        filename = secure_filename(file.filename)
+        try:
+            # Create the user's upload directory if it doesn't exist
+            user_upload_dir = os.path.join('./uploads', current_user)
+            os.makedirs(user_upload_dir, exist_ok=True)
+
+            # Create the "pfp" folder inside the user's upload directory
+            pfp_dir = os.path.join(user_upload_dir, 'pfp')
+            os.makedirs(pfp_dir, exist_ok=True)
+
+            # Save the profile picture in the "pfp" directory
+            filepath = os.path.join(pfp_dir, filename)
+            file.save(filepath)
+            print(f"Profile picture saved to {filepath}")
+
+            # Build a URL for retrieving the profile picture from the client side
+            file_url = f"http://scholarsphere.anythingnew.today/files/{current_user}/pfp/{filename}"
+            return jsonify({
+                'message': 'Profile picture uploaded successfully.',
+                'url': file_url,
+            }), 200
+        except Exception as e:
+            print(f"An error occurred during profile picture upload: {e}")
+            return jsonify({'error': 'An error occurred while uploading the profile picture.'}), 500
+
+    return jsonify({'error': 'Invalid request method'}), 405
+
 
 @app.route('/files/<username>/<path:filename>', methods=['GET'])
 def serve_file(username, filename):
