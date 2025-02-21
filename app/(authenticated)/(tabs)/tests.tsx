@@ -139,7 +139,7 @@ export default function TestFlashcardScreen() {
         [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
         [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
         Do not include any additional text in your response such as a question number or a reference to the text.
-
+        Make the answer choices as close to being correct as possible but make the correct answer be clearly the correct answer.
       `;
       const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',

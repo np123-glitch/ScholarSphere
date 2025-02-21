@@ -42,7 +42,7 @@ const LoginScreen = () => {
       <Text style={[styles.title, isDarkMode && styles.titleDark]}>Login to ScholarSphere</Text>
       <TextInput
         style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Login ID"
+        placeholder="Username"
         placeholderTextColor={isDarkMode ? '#ccc' : '#666'} // Set placeholder color based on mode
         value={loginId}
         onChangeText={setLoginId}

@@ -6,8 +6,8 @@ import {
   Platform,
   View,
   ActivityIndicator,
-  FlatList, // <-- For listing files
-  Linking,  // <-- To open file URLs
+  FlatList,
+  Linking,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
@@ -17,7 +17,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import Config from '@/components/Config';
-import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
+import { decodeJwt } from '@/utils/decodeJwt';
 
 interface UploadResponse {
   message: string;
@@ -34,14 +34,14 @@ export default function DocumentUploader() {
   const router = useRouter();
   const systemColorScheme = useColorScheme() || 'light';
   const isDarkMode = systemColorScheme === 'dark';
-  const { token } = useAuthSession();
+  // Assuming the AuthProvider now also provides a logout function.
+  const { token, signOut } = useAuthSession();
+
   const [userName, setUserName] = useState<string | null>(null);
-
   const [uploadingPdf, setUploadingPdf] = useState(false);
-
   const [userFiles, setUserFiles] = useState<FileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const apiUrl = Config.API_BASE_URL;
 
   const fetchUserFiles = async () => {
@@ -49,7 +49,7 @@ export default function DocumentUploader() {
       console.warn('Cannot fetch files: userName is null');
       return;
     }
-  
+
     try {
       const response = await fetch(`${apiUrl}/files/${userName}`, {
         method: 'GET',
@@ -57,35 +57,42 @@ export default function DocumentUploader() {
           Authorization: `Bearer ${token.current}`,
         },
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
-        if (response.message === 'Token has expired!') {
-                          Alert.alert('Session Expired', 'Your session has expired. Please log out and log in again.');
-                        } else {
-                          Alert.alert('Error', response.message);
-                        }
+        if (errorData.message === 'Token has expired!') {
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please log out and log in again.',
+            [
+              {
+                text: 'OK',
+                onPress: () => signOut(),
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Error', errorData.message || 'An unexpected error occurred.');
+        }
+        return;
       }
-  
+
       const data: FileRecord[] = await response.json();
       setUserFiles(data);
     } catch (err: any) {
       console.error('Error fetching files:', err);
-      Alert.alert(
-        'Error',
-        err.message || 'Could not fetch files. Please try again.'
-      );
+      Alert.alert('Error', err.message || 'Could not fetch files. Please try again.'); 
     }
   };
 
   useEffect(() => {
     if (token.current) {
       const decodedToken = decodeJwt(token.current);
-      console.log('Decoded Token:', decodedToken); // Debugging line
+      console.log('Decoded Token:', decodedToken);
       if (decodedToken && decodedToken.sub) {
-        setUserName(decodedToken.sub); // Use 'sub' exclusively
+        setUserName(decodedToken.sub);
       } else {
-        console.error('Name not found in token:', decodedToken);
+        console.error('User name not found in token:', decodedToken);
         Alert.alert('Error', 'User name not found in token.');
         setUserName(null);
       }
@@ -100,7 +107,7 @@ export default function DocumentUploader() {
     if (userName) {
       fetchUserFiles();
     }
-  }, [userName]); // Trigger fetch when userName is set
+  }, [userName]);
 
   const pickAndUploadDocument = async (fileType: FileType) => {
     try {
@@ -152,7 +159,6 @@ export default function DocumentUploader() {
         type: file.type,
       } as any);
 
-      // Uploading state
       setUploadingPdf(true);
 
       const response = await fetch(`${apiUrl}/upload`, {
@@ -160,24 +166,27 @@ export default function DocumentUploader() {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token.current}`,
-          // Do not set 'Content-Type' when using FormData; it will be set automatically.
+          // When using FormData, do not set 'Content-Type'
         },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'An error occurred while uploading the file.');
+        throw new Error(
+          errorData.error || 'An error occurred while uploading the file.'
+        );
       }
 
       const data: UploadResponse = await response.json();
-
       Alert.alert('Success', data.message);
-
       fetchUserFiles();
     } catch (error: any) {
       console.error('Error while selecting or uploading file:', error);
-      Alert.alert('Error', error.message || 'An error occurred while uploading the file.');
+      Alert.alert(
+        'Error',
+        error.message || 'An error occurred while uploading the file.'
+      );
     } finally {
       setUploadingPdf(false);
     }
@@ -352,7 +361,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   pdfButton: {
-    backgroundColor: '#FF5722', // Orange for PDF
+    backgroundColor: '#FF5722',
   },
   uploadText: {
     fontSize: 18,

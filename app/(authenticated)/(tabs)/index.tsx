@@ -113,6 +113,15 @@ export default function IndexPage() {
             <Text style={styles.actionButtonText}>Feedback</Text>
           </TouchableOpacity>
         </View>
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
+            onPress={() => router.navigate('../../calendar')}
+          >
+            <MaterialIcons name="feedback" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.actionButtonText}>Calendar</Text>
+          </TouchableOpacity>
+        </View>
       </ThemedView>
   );
 }

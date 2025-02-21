@@ -10,6 +10,7 @@ import {
   View,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthSession } from '@/components/AuthProvider';
@@ -19,6 +20,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { decodeJwt, JwtPayload } from '@/utils/decodeJwt';
 import Config from '@/components/Config';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const router = useRouter();
@@ -29,11 +32,29 @@ export default function Profile() {
   const [userName, setUserName] = useState<string | null>(null);
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [profilePic, setProfilePic] = useState<string | null>(null);
 
   // Toggle theme handler
   const toggleTheme = () => {
     setIsDarkMode((prevMode) => !prevMode);
   };
+
+  // Load stored profile picture from AsyncStorage
+  useEffect(() => {
+    const loadProfilePic = async () => {
+      try {
+        const storedPic = await AsyncStorage.getItem('profilePicture');
+        if (storedPic) {
+          setProfilePic(storedPic);
+        }
+      } catch (error) {
+        console.error('Failed to load profile picture:', error);
+        Alert.alert('Error', 'Failed to load profile picture.');
+      }
+    };
+
+    loadProfilePic();
+  }, []);
 
   // Decode JWT and set user name
   useEffect(() => {
@@ -78,7 +99,7 @@ export default function Profile() {
                     'Authorization': `Bearer ${token.current}`,
                   },
                 }
-              )
+              );
               if (response.ok) {
                 signOut();
                 Alert.alert('Success', 'Account deleted successfully.');
@@ -88,11 +109,31 @@ export default function Profile() {
               console.error('Error deleting account:', error);
               Alert.alert('Error', 'Failed to delete account.');
             }
-        }
-        }
+          },
+        },
       ]
-    )
+    );
+  };
 
+  // Handle profile picture change
+  const pickProfilePicture = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Ensures a square crop
+        quality: 1,
+      });
+
+      if (!result.cancelled) {
+        // Update state and store the selected image URI
+        setProfilePic(result.uri);
+        await AsyncStorage.setItem('profilePicture', result.uri);
+      }
+    } catch (error) {
+      console.error('Error picking profile picture:', error);
+      Alert.alert('Error', 'Failed to pick image.');
+    }
   };
 
   return (
@@ -129,7 +170,7 @@ export default function Profile() {
         {/* Placeholder to balance the header layout */}
         <View style={styles.headerRightPlaceholder} />
       </View>
-      
+
       <View
         style={[
           styles.userCard,
@@ -140,21 +181,34 @@ export default function Profile() {
           <ActivityIndicator size="large" color="#007AFF" />
         ) : (
           <>
-            <Ionicons
-              name="person-circle"
-              size={100}
-              color={isDarkMode ? '#fff' : '#000'}
-              style={styles.userIcon}
-            />
+            {profilePic ? (
+              <Image source={{ uri: profilePic }} style={styles.profileImage} />
+            ) : (
+              <Ionicons
+                name="person-circle"
+                size={100}
+                color={isDarkMode ? '#fff' : '#000'}
+                style={styles.userIcon}
+              />
+            )}
             <ThemedText
               type="name"
               style={[styles.userName, isDarkMode ? { color: '#fff' } : {}]}
             >
               {userName || 'User'}
             </ThemedText>
+            <TouchableOpacity
+              style={styles.changePicButton}
+              onPress={pickProfilePicture}
+            >
+              <ThemedText type="button" style={styles.changePicButtonText}>
+                Change Profile Picture
+              </ThemedText>
+            </TouchableOpacity>
           </>
         )}
       </View>
+
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity
           style={[
@@ -241,7 +295,7 @@ export default function Profile() {
         </TouchableOpacity>
       </View>
 
-      {/* Logout Button */}
+      {/* Logout and Delete Account Buttons */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <ThemedText type="button" style={styles.logoutButtonText}>
@@ -320,9 +374,23 @@ const styles = StyleSheet.create({
   userIcon: {
     marginBottom: 15,
   },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
   userName: {
     fontSize: 22,
     fontWeight: '600',
+  },
+  changePicButton: {
+    marginTop: 10,
+  },
+  changePicButtonText: {
+    fontSize: 16,
+    color: '#007bff',
+    textDecorationLine: 'underline',
   },
 
   //
@@ -353,10 +421,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '500',
-  },
-  description: {
-    paddingBottom: 20,
-    textAlign: 'center',
   },
 
   //
