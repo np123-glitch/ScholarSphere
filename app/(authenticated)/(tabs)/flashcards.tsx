@@ -35,7 +35,7 @@ interface FlashcardSet {
 }
 
 export default function FlashcardsScreen() {
-  const { token, isLoading: authLoading } = useAuthSession();
+  const { token, isLoading: authLoading, signOut } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [count, setCount] = useState(5);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
@@ -190,7 +190,16 @@ export default function FlashcardsScreen() {
         await saveFlashcardSets(updatedSets);
       } else {
         if (result.message === 'Token has expired!') {
-                  Alert.alert('Session Expired', 'Your session has expired. Please log out and log in again.');
+                  Alert.alert(
+                              'Session Expired',
+                              'Your session has expired. Please log out and log in again.',
+                              [
+                                {
+                                  text: 'OK',
+                                  onPress: () => signOut(),
+                                },
+                              ]
+                            );
                 } else {
                   Alert.alert('Error', result.message);
                 }

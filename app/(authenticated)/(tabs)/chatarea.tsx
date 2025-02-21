@@ -17,7 +17,7 @@ import { useAuthSession } from '@/components/AuthProvider';
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
-  const { token, isLoading: authLoading } = useAuthSession();
+  const { token, isLoading: authLoading, signOut } = useAuthSession();
   const [text, setText] = useState('');
   const [botResponse, setBotResponse] = useState('');
   const colorScheme = useColorScheme() || 'light';
@@ -51,7 +51,16 @@ export default function HomeScreen() {
         let errorMessage = result.message || result.error || 'Something went wrong!';
 
         if (result.message === 'Token has expired!') {
-          Alert.alert('Session Expired', 'Your session has expired. Please log out and log in again.');
+          Alert.alert(
+                      'Session Expired',
+                      'Your session has expired. Please log out and log in again.',
+                      [
+                        {
+                          text: 'OK',
+                          onPress: () => signOut(),
+                        },
+                      ]
+                    );
         } else {
           Alert.alert('Error', errorMessage);
         }

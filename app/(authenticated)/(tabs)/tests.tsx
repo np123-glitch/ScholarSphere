@@ -36,7 +36,7 @@ type TestSet = {
 };
 
 export default function TestFlashcardScreen() {
-  const { token } = useAuthSession();
+  const { token, signOut } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<number>(5);
   const [numQuestions, setNumQuestions] = useState<number>(5);
@@ -156,7 +156,16 @@ export default function TestFlashcardScreen() {
               let errorMessage = data.message || data.error || 'Something went wrong!';
       
               if (response.status === 401) {
-                errorMessage = 'Unauthorized! Please log in again.';
+                Alert.alert(
+                            'Session Expired',
+                            'Your session has expired. Please log out and log in again.',
+                            [
+                              {
+                                text: 'OK',
+                                onPress: () => signOut(),
+                              },
+                            ]
+                          );
               } else if (response.status === 500) {
                 errorMessage = 'Server error! Please try again later.';
               }

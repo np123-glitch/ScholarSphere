@@ -64,9 +64,15 @@ export default function FeedbackPage() {
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
       Alert.alert(
-        'Submission Error',
-        error.response?.data?.error || 'An error occurred while submitting your feedback.'
-      );
+                  'Session Expired',
+                  'Your session has expired. Please log out and log in again.',
+                  [
+                    {
+                      text: 'OK',
+                      
+                    },
+                  ]
+                );
     } finally {
       setSubmitting(false);
     }
