@@ -13,6 +13,7 @@ import {
 import { Calendar } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -53,9 +54,7 @@ export default function HomeworkPlanner() {
       dueDate: selectedDate,
     };
 
-    setAssignments((prev) => {
-      return [...prev, newAssignment];
-    });
+    setAssignments((prev) => [...prev, newAssignment]);
     setAssignmentText('');
     setModalVisible(false);
   };
@@ -74,6 +73,23 @@ export default function HomeworkPlanner() {
       </ThemedText>
     </View>
   );
+
+  // Function to send a test notification.
+  const sendTestNotification = async () => {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Test Notification',
+          body: 'This is a test notification from your Homework Planner!',
+        },
+        trigger: null, // Immediately trigger
+      });
+      console.log("Notification sent successfully!");
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      Alert.alert('Error', 'Failed to send notification.');
+    }
+  };
 
   return (
     <ThemedView
@@ -142,6 +158,16 @@ export default function HomeworkPlanner() {
           </ThemedText>
         </TouchableOpacity>
       </ThemedView>
+
+      {/* Send Notification Button for Testing */}
+      <TouchableOpacity
+        style={[styles.notifyButton, isDarkMode && styles.notifyButtonDark]}
+        onPress={sendTestNotification}
+      >
+        <ThemedText type="button" style={styles.notifyButtonText}>
+          Send Notification
+        </ThemedText>
+      </TouchableOpacity>
 
       {/* Modal for Adding Homework Assignment */}
       <Modal
@@ -272,6 +298,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 4,
+  },
+  // Notification Button
+  notifyButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  notifyButtonDark: {
+    backgroundColor: '#1e7e34',
+  },
+  notifyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   // Modal styles
   modalBackground: {
