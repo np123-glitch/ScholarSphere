@@ -1,25 +1,22 @@
-// src/screens/FlashcardsScreen.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  TextInput,
-  Text,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   Animated,
+  Easing,
   ActivityIndicator,
   Alert,
-  TouchableWithoutFeedback, // Import TouchableWithoutFeedback
+  ScrollView,
+  useColorScheme
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Send, RotateCw } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import Config from '@/components/Config';
 import { useAuthSession } from '@/components/AuthProvider';
+import Config from '@/components/Config';
 
 interface Flashcard {
   question: string;
@@ -35,7 +32,9 @@ interface FlashcardSet {
 }
 
 export default function FlashcardsScreen() {
-  const { token, isLoading: authLoading, signOut } = useAuthSession();
+  const router = useRouter();
+  const isDark = useColorScheme() === 'dark';
+  const { token, signOut } = useAuthSession();
   const [topic, setTopic] = useState('');
   const [count, setCount] = useState(5);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
@@ -44,64 +43,28 @@ export default function FlashcardsScreen() {
   const [savedFlashcards, setSavedFlashcards] = useState<FlashcardSet[]>([]);
   const [selectedSavedSet, setSelectedSavedSet] = useState<FlashcardSet | null>(null);
 
-  const colorScheme = useColorScheme() || 'light';
-  const isDarkMode = colorScheme === 'dark';
-  const baseUrl = Config.API_BASE_URL;
-
-  // 3D flip animation value
+  // Animation states
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
 
-  // State to prevent multiple simultaneous flips
-  const [isFlipping, setIsFlipping] = useState(false);
+  const baseUrl = Config.API_BASE_URL;
 
-  // Track whether the card is showing front or back
-  const [isFront, setIsFront] = useState(true);
-
-  // Load saved flashcards when component mounts
-  useEffect(() => {
-    loadSavedFlashcards();
-  }, []);
-
-  // Function to load saved flashcards from AsyncStorage
-  const loadSavedFlashcards = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem('@flashcard_sets');
-      if (jsonValue != null) {
-        const sets: FlashcardSet[] = JSON.parse(jsonValue);
-        setSavedFlashcards(sets);
-      }
-    } catch (e) {
-      console.error('Failed to load flashcard sets:', e);
-    }
-  };
-
-  // Function to save flashcard sets to AsyncStorage
-  const saveFlashcardSets = async (sets: FlashcardSet[]) => {
-    try {
-      const jsonValue = JSON.stringify(sets);
-      await AsyncStorage.setItem('@flashcard_sets', jsonValue);
-    } catch (e) {
-      console.error('Failed to save flashcard sets:', e);
-    }
-  };
-
-  // Handle flipping animation
   const flipCard = () => {
-    if (isFlipping) return; // Prevent flip if already animating
+    if (isFlipping) return;
     setIsFlipping(true);
 
     Animated.spring(flipAnim, {
-      toValue: isFront ? 180 : 0,
+      toValue: isFlipped ? 0 : 180,
       friction: 8,
       tension: 10,
       useNativeDriver: true,
     }).start(() => {
-      setIsFront(!isFront);
+      setIsFlipped(!isFlipped);
       setIsFlipping(false);
     });
   };
 
-  // Interpolate flipAnim from 0→180 into 0deg→180deg for the front
   const frontAnimatedStyle = {
     transform: [
       {
@@ -113,7 +76,6 @@ export default function FlashcardsScreen() {
     ],
   };
 
-  // Interpolate flipAnim from 0→180 into 180deg→360deg for the back
   const backAnimatedStyle = {
     transform: [
       {
@@ -125,7 +87,6 @@ export default function FlashcardsScreen() {
     ],
   };
 
-  // Handle generating flashcards
   const handleGenerate = async () => {
     if (!topic.trim()) {
       Alert.alert('Validation Error', 'Please enter a topic.');
@@ -147,12 +108,10 @@ export default function FlashcardsScreen() {
       });
 
       const result = await response.json();
-      console.log('Raw response from server:', result.response);
 
       if (response.ok) {
         const lines = result.response.split('\n');
-
-        const flashcardsArray: Flashcard[] = lines
+        const flashcardsArray = lines
           .map((line) => {
             const trimmed = line.trim();
             if (!trimmed) return null;
@@ -172,11 +131,9 @@ export default function FlashcardsScreen() {
 
         setFlashcards(flashcardsArray);
         setCurrentCardIndex(0);
-        // Reset flip animation
         flipAnim.setValue(0);
-        setIsFront(true);
+        setIsFlipped(false);
 
-        // Save the generated flashcards as a new set
         const newSet: FlashcardSet = {
           id: Date.now().toString(),
           topic: topic.trim(),
@@ -185,24 +142,17 @@ export default function FlashcardsScreen() {
           flashcards: flashcardsArray,
         };
 
-        const updatedSets = [newSet, ...savedFlashcards];
-        setSavedFlashcards(updatedSets);
-        await saveFlashcardSets(updatedSets);
+        setSavedFlashcards(prev => [newSet, ...prev]);
       } else {
         if (result.message === 'Token has expired!') {
-                  Alert.alert(
-                              'Session Expired',
-                              'Your session has expired. Please log out and log in again.',
-                              [
-                                {
-                                  text: 'OK',
-                                  onPress: () => signOut(),
-                                },
-                              ]
-                            );
-                } else {
-                  Alert.alert('Error', result.message);
-                }
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please log out and log in again.',
+            [{ text: 'OK', onPress: () => signOut() }]
+          );
+        } else {
+          Alert.alert('Error', result.message);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred while generating flashcards.');
@@ -211,396 +161,311 @@ export default function FlashcardsScreen() {
     }
   };
 
-  // Handle navigating to the next flashcard
-  const handleNextCard = () => {
-    if (currentCardIndex < flashcards.length - 1) {
-      setCurrentCardIndex((prev) => prev + 1);
-      // Reset flip animation
-      flipAnim.setValue(0);
-      setIsFront(true);
-    }
-  };
-
-  // Handle navigating to the previous flashcard
-  const handlePrevCard = () => {
-    if (currentCardIndex > 0) {
-      setCurrentCardIndex((prev) => prev - 1);
-      // Reset flip animation
-      flipAnim.setValue(0);
-      setIsFront(true);
-    }
-  };
-
-  // Handle selecting a saved flashcard set
-  const handleSelectSavedSet = (set: FlashcardSet) => {
-    setSelectedSavedSet(set);
-    setFlashcards(set.flashcards);
-    setCurrentCardIndex(0);
-    // Reset flip animation
-    flipAnim.setValue(0);
-    setIsFront(true);
-  };
-
-  // Handle deleting a saved flashcard set
-  const handleDeleteSavedSet = (setId: string) => {
-    Alert.alert(
-      'Delete Flashcard Set',
-      'Are you sure you want to delete this flashcard set?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updatedSets = savedFlashcards.filter((set) => set.id !== setId);
-            setSavedFlashcards(updatedSets);
-            await saveFlashcardSets(updatedSets);
-            // If the deleted set was selected, reset the current flashcards
-            if (selectedSavedSet?.id === setId) {
-              setSelectedSavedSet(null);
-              setFlashcards([]);
-              setCurrentCardIndex(0);
-              // Reset flip animation
-              flipAnim.setValue(0);
-              setIsFront(true);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const currentCard = flashcards[currentCardIndex] || { question: '', answer: '' };
 
   return (
-    <ParallaxScrollView>
-      <ThemedView>
-        <ThemedText type="title" style={styles.title}>
-          Flashcards Generator
+    <ThemedView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={styles.headerTitle}>
+          Flashcards
         </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
-                  Example: "Absolutism keywords" or "Beginning of Absolutism"
-        </ThemedText>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {/* Topic Input */}
+      <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, isDarkMode ? styles.inputDark : {}]}
+          style={[
+            styles.input,
+            isDark ? styles.inputDark : styles.inputLight
+          ]}
+          placeholder="Enter topic (e.g., World War II)"
+          placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
           value={topic}
           onChangeText={setTopic}
-          placeholder="Enter topic"
-          placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
         />
-
-        <Picker
-          selectedValue={String(count)}
-          style={[styles.picker, isDarkMode ? styles.pickerDark : {}]}
-          onValueChange={(itemValue) => setCount(Number(itemValue))}
-        >
-          {[...Array(20).keys()].map((num) => (
-            <Picker.Item
-              key={num + 1}
-              label={`${num + 1} flashcards`}
-              value={`${num + 1}`}
-            />
-          ))}
-        </Picker>
-
-        <TouchableOpacity
-          style={[styles.generateButton, isDarkMode ? styles.generateButtonDark : {}]}
+        <TouchableOpacity 
+          style={[
+            styles.generateButton,
+            isDark ? styles.buttonDark : styles.buttonLight
+          ]}
           onPress={handleGenerate}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Generate Flashcards</Text>
+            <>
+              <RotateCw size={20} color="#fff" />
+              <ThemedText type="body" style={styles.buttonText}>
+                Generate
+              </ThemedText>
+            </>
           )}
         </TouchableOpacity>
-      </ThemedView>
+      </View>
 
-      {/* Saved Flashcards Section */}
-      <ThemedView style={styles.savedSection}>
-        <ThemedText type="subtitle" style={styles.savedTitle}>
-          Saved Flashcard Sets
-        </ThemedText>
-        {savedFlashcards.length === 0 ? (
-          <Text style={[styles.noSavedText, isDarkMode ? { color: '#fff' } : {}]}>
-            No saved flashcard sets.
-          </Text>
-        ) : (
-          savedFlashcards.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.savedSetItem,
-                isDarkMode ? styles.savedSetItemDark : {},
-              ]}
-              onPress={() => handleSelectSavedSet(item)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.savedSetTitle, isDarkMode ? { color: '#fff' } : {}]}>
-                  {item.topic}
-                </Text>
-                <Text style={[styles.savedSetDetails, isDarkMode ? { color: '#ccc' } : {}]}>
-                  {item.count} flashcards • {new Date(item.createdAt).toLocaleString()}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => handleDeleteSavedSet(item.id)}
-                style={styles.deleteButton}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))
-        )}
-      </ThemedView>
-
-      {/* Flashcards Display Section */}
+      {/* Flashcard */}
       {flashcards.length > 0 && (
         <View style={styles.cardContainer}>
-          <Text style={[styles.counterText, isDarkMode ? { color: '#fff' } : {}]}>
+          <ThemedText type="body" style={styles.counter}>
             Card {currentCardIndex + 1} of {flashcards.length}
-          </Text>
-
-          {/* Wrap the entire flashcard with TouchableWithoutFeedback */}
-          <TouchableWithoutFeedback onPress={flipCard}>
-            <View style={styles.flipCardContainer}>
-              {/* Front Side */}
+          </ThemedText>
+          
+          <TouchableOpacity onPress={flipCard} activeOpacity={0.9}>
+            <View style={styles.cardWrapper}>
               <Animated.View
                 style={[
                   styles.card,
-                  isDarkMode ? styles.cardDark : {},
+                  isDark ? styles.cardDark : styles.cardLight,
                   frontAnimatedStyle,
-                  {
-                    backfaceVisibility: 'hidden',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                  },
+                  styles.cardFront
                 ]}
               >
-                <Text
-                  style={[styles.cardText, isDarkMode ? styles.cardTextDark : {}]}
-                >
+                <ThemedText type="title" style={styles.cardText}>
                   {currentCard.question}
-                </Text>
+                </ThemedText>
               </Animated.View>
-
-              {/* Back Side */}
               <Animated.View
                 style={[
                   styles.card,
-                  isDarkMode ? styles.cardDark : {},
-                  styles.cardBack,
+                  isDark ? styles.cardDark : styles.cardLight,
                   backAnimatedStyle,
-                  {
-                    backfaceVisibility: 'hidden',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                  },
+                  styles.cardBack
                 ]}
               >
-                <Text
-                  style={[styles.cardText, isDarkMode ? styles.cardTextDark : {}]}
-                >
+                <ThemedText type="title" style={styles.cardText}>
                   {currentCard.answer}
-                </Text>
+                </ThemedText>
               </Animated.View>
             </View>
-          </TouchableWithoutFeedback>
+          </TouchableOpacity>
 
-          <View style={styles.navButtonsContainer}>
-            <TouchableOpacity
+          <View style={styles.navigation}>
+            <TouchableOpacity 
               style={[
                 styles.navButton,
-                isDarkMode ? styles.navButtonDark : {},
-                { marginRight: 8 },
+                isDark ? styles.buttonDark : styles.buttonLight,
+                currentCardIndex === 0 && styles.buttonDisabled
               ]}
-              onPress={handlePrevCard}
-              disabled={currentCardIndex <= 0}
+              onPress={() => {
+                if (currentCardIndex > 0) {
+                  setCurrentCardIndex(prev => prev - 1);
+                  flipAnim.setValue(0);
+                  setIsFlipped(false);
+                }
+              }}
+              disabled={currentCardIndex === 0}
             >
-              <Text style={styles.navButtonText}>Back</Text>
+              <ThemedText type="body" style={styles.buttonText}>
+                Previous
+              </ThemedText>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.navButton, isDarkMode ? styles.navButtonDark : {}]}
-              onPress={handleNextCard}
-              disabled={currentCardIndex >= flashcards.length - 1}
+            <TouchableOpacity 
+              style={[
+                styles.navButton,
+                isDark ? styles.buttonDark : styles.buttonLight,
+                currentCardIndex === flashcards.length - 1 && styles.buttonDisabled
+              ]}
+              onPress={() => {
+                if (currentCardIndex < flashcards.length - 1) {
+                  setCurrentCardIndex(prev => prev + 1);
+                  flipAnim.setValue(0);
+                  setIsFlipped(false);
+                }
+              }}
+              disabled={currentCardIndex === flashcards.length - 1}
             >
-              <Text style={styles.navButtonText}>Next</Text>
+              <ThemedText type="body" style={styles.buttonText}>
+                Next
+              </ThemedText>
             </TouchableOpacity>
           </View>
         </View>
       )}
-    </ParallaxScrollView>
+
+      {/* Saved Flashcards */}
+      <ScrollView style={styles.savedSection}>
+        <ThemedText type="subtitle" style={styles.savedTitle}>
+          Saved Flashcard Sets
+        </ThemedText>
+        {savedFlashcards.map((set) => (
+          <TouchableOpacity
+            key={set.id}
+            style={[
+              styles.savedSetItem,
+              isDark ? styles.savedSetItemDark : styles.savedSetItemLight
+            ]}
+            onPress={() => {
+              setFlashcards(set.flashcards);
+              setCurrentCardIndex(0);
+              flipAnim.setValue(0);
+              setIsFlipped(false);
+            }}
+          >
+            <View>
+              <ThemedText type="body" style={styles.savedSetTitle}>
+                {set.topic}
+              </ThemedText>
+              <ThemedText type="body" style={styles.savedSetDetails}>
+                {set.count} cards • {new Date(set.createdAt).toLocaleDateString()}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    textAlign: 'center',
-    marginVertical: 16,
-    fontSize: 32,
-    fontWeight: 'bold',
+  container: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 60
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600'
+  },
+  inputContainer: {
+    gap: 12,
+    marginBottom: 32
   },
   input: {
-    margin: 16,
-    padding: 12,
-    borderRadius: 8,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    backgroundColor: '#f0f0f0',
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16
+  },
+  inputLight: {
+    backgroundColor: '#F3F4F6',
+    color: '#1F2937'
   },
   inputDark: {
-    borderColor: '#555',
-    backgroundColor: '#555',
-    color: '#fff',
-  },
-  picker: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  pickerDark: {
-    color: '#fff',
+    backgroundColor: '#374151',
+    color: '#F9FAFB'
   },
   generateButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
+    justifyContent: 'center',
+    gap: 8
   },
-  generateButtonDark: {
-    backgroundColor: '#0056b3',
+  buttonLight: {
+    backgroundColor: '#4F46E5'
+  },
+  buttonDark: {
+    backgroundColor: '#6366F1'
+  },
+  buttonDisabled: {
+    opacity: 0.5
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  loadingText: {
-    marginTop: 8,
-    fontSize: 16,
-    color: '#333',
+    fontWeight: '600'
   },
   cardContainer: {
-    padding: 16,
     alignItems: 'center',
+    marginBottom: 24
   },
-  counterText: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
-  },
-  flipCardContainer: {
-    width: 250,
-    height: 180,
+  counter: {
     marginBottom: 16,
-    // To make sure the flip works correctly on Android
-    backfaceVisibility: 'hidden',
+    fontSize: 16,
+    opacity: 0.7
+  },
+  cardWrapper: {
+    width: 300,
+    height: 200,
+    marginBottom: 24
   },
   card: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#e9ecef',
-    borderRadius: 8,
-    backfaceVisibility: 'hidden',
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    // Removed position: 'absolute' as it's handled in component
+    position: 'absolute'
+  },
+  cardLight: {
+    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 4
   },
   cardDark: {
-    backgroundColor: '#444',
+    backgroundColor: '#1F2937',
     shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  cardFront: {
+    backfaceVisibility: 'hidden'
   },
   cardBack: {
-    // rotateY is handled by backAnimatedStyle
+    backfaceVisibility: 'hidden'
   },
   cardText: {
-    fontSize: 18,
-    color: '#333',
     textAlign: 'center',
-    marginHorizontal: 20,
+    fontSize: 18,
+    lineHeight: 24
   },
-  cardTextDark: {
-    color: '#fff',
-  },
-  navButtonsContainer: {
+  navigation: {
     flexDirection: 'row',
-    marginTop: 16,
+    gap: 12,
+    width: '100%'
   },
   navButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  navButtonDark: {
-    backgroundColor: '#218838',
-  },
-  navButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   savedSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flex: 1
   },
   savedTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  noSavedText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginVertical: 8,
+    fontWeight: '600',
+    marginBottom: 16
   },
   savedSetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12
+  },
+  savedSetItemLight: {
+    backgroundColor: '#F3F4F6'
   },
   savedSetItemDark: {
-    backgroundColor: '#333',
+    backgroundColor: '#374151'
   },
   savedSetTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '600',
+    marginBottom: 4
   },
   savedSetDetails: {
     fontSize: 14,
-    color: '#666',
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteButtonText: {
-    color: '#dc3545',
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginVertical: 0,
-    paddingBottom: 16,
-    fontSize: 16, // Added for better readability
-    color: '#666', // Default color
-  },
+    opacity: 0.7
+  }
 });

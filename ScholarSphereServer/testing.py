@@ -1,10 +1,13 @@
+import sys
+import json
 from pinecone import Pinecone
+from gen_response import send_message
 
-pc = Pinecone(api_key="pcsk_6UCVz9_E8Nyoiconp2u2i654vS5XZSmDXzbNfYxC4aQHdGCn8f6XJuTZ7Tp9UTzuH6CtHu")
+# Set your API key for Pinecone
+API_KEY = "pcsk_336VbM_N3MZuDxwDN9qHSzKmCyWbW9XWUbjWswiVqwrGJbMXhu7DdhKKokoXSKUdwvuHPM"
+
+# Initialize Pinecone and the assistant object
+pc = Pinecone(api_key=API_KEY)
 assistant = pc.assistant.Assistant(assistant_name="official-assistant")
 
-def list_files(username):
-    return assistant.list_files(filter={"userid": username})
-
-
-print(list_files("neelprasad"))
+print(send_message("What is the name of the first person to discover the americas? Do not respond with any references to the documents.", assistant, "testing"))

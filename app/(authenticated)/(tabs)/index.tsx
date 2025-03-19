@@ -1,269 +1,233 @@
-// src/screens/IndexPage.tsx
-
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
+import { 
+  StyleSheet, 
+  View, 
   TouchableOpacity,
-  Modal,
-  Switch,
-  Image,
-  Animated,
+  ScrollView,
+  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthSession } from "@/components/AuthProvider";
-
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { MaterialIcons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-import { MaterialIcons } from '@expo/vector-icons'; // Importing MaterialIcons
-import { Ionicons } from '@expo/vector-icons'; // Importing Ionicons
+import { User, PlayCircle } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import OnboardingOverlay from '@/app/onboarding';
 
 export default function IndexPage() {
   const router = useRouter();
-  const systemColorScheme = useColorScheme() || 'light';
-  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
-  const { signOut, token } = useAuthSession();
+  const isDark = useColorScheme() === 'dark';
 
-  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
+  const features = [
+    {
+      title: 'Chat Assistant',
+      description: 'Get help with your studies from our AI tutor',
+      icon: 'chat',
+      route: '/chatarea',
+      color: '#4F46E5'
+    },
+    {
+      title: 'Flashcards',
+      description: 'Create and study AI-generated flashcards',
+      icon: 'style',
+      route: '/flashcards',
+      color: '#7C3AED'
+    },
+    {
+      title: 'Quiz Mode',
+      description: 'Test your knowledge with AI-generated questions',
+      icon: 'quiz',
+      route: '/tests',
+      color: '#2563EB'
+    },
+    {
+      title: 'Upload Materials',
+      description: 'Upload study materials for AI analysis',
+      icon: 'upload-file',
+      route: '/upload',
+      color: '#059669'
+    }
+  ];
 
-  const logout = () => {
-    signOut();
-  };
-
-  // Toggle theme handler
-  const toggleTheme = () => {
-    setIsDarkMode((prevMode) => !prevMode);
-  };
 
   return (
-      <ThemedView
-        style={[
-          styles.container,
-          isDarkMode ? styles.containerDark : styles.containerLight,
-        ]}
+    <ThemedView style={[styles.container, isDark ? styles.containerDark : styles.containerLight]}>
+      {/* Header with Profile Icon and Demo Button */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={[
+            styles.profileButton,
+            isDark ? styles.profileButtonDark : styles.profileButtonLight
+          ]}
+          onPress={() => router.push('/profile')}
+        >
+          <User size={20} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Welcome Message */}
+      <ThemedText type="title" style={styles.title}>
+        Welcome to ScholarSphere
+      </ThemedText>
+      <ThemedText type="body" style={styles.description}>
+        Your AI-powered learning companion. Choose a feature below to get started.
+      </ThemedText>
+
+      {/* Feature Grid inside a ScrollView */}
+      <ScrollView 
+        contentContainerStyle={styles.featureGrid}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header with Profile Icon */}
-        <View style={styles.header}>
+        {features.map((feature, index) => (
           <TouchableOpacity
-            style={styles.profileIcon}
-            onPress={() => {
-              console.log('Profile icon pressed');
-              router.navigate('../../profile');
-            }}
-            accessibilityLabel="Open Profile"
+            key={index}
+            style={[
+              styles.featureCard,
+              isDark ? styles.featureCardDark : styles.featureCardLight,
+            ]}
+            onPress={() => router.push(feature.route)}
           >
-            <Ionicons
-              name="person-circle"
-              size={30}
-              color={isDarkMode ? '#fff' : '#000'}
-            />
+            <View style={[styles.iconContainer, { backgroundColor: feature.color }]}>
+              <MaterialIcons name={feature.icon} size={24} color="#fff" />
+            </View>
+            <ThemedText type="subtitle" style={styles.featureTitle}>
+              {feature.title}
+            </ThemedText>
+            <ThemedText type="body" style={styles.featureDescription}>
+              {feature.description}
+            </ThemedText>
           </TouchableOpacity>
-        </View>
-
-
-        {/* Welcome Message */}
-        <ThemedText
-          type="title"
-          style={[styles.title, isDarkMode ? { color: '#fff' } : {}]}
-        >
-          Welcome to ScholarSphere
-        </ThemedText>
-
-        {/* Description */}
-        <ThemedText
-          type="body"
-          style={[styles.description, isDarkMode ? { color: '#ccc' } : {}]}
-        >
-          Your all-in-one platform for creating and managing school notes and materials.
-          Explore flashcards, generate multiple-choice questions, and interact with your personal AI companion to enhance your academic journey!
-        </ThemedText>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
-            onPress={() => router.push('/chatarea')}
-          >
-            <MaterialIcons name="chat" size={24} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Get Started</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Todo List Button */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
-            onPress={() => router.navigate('../../todo')}
-          >
-            <MaterialIcons name="check-box" size={24} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Todo List</Text>
-          </TouchableOpacity>
-        </View>
-        {/* Feedback Button */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : {}]}
-            onPress={() => router.navigate('../../feedback')}
-          >
-            <MaterialIcons name="feedback" size={24} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Feedback</Text>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
+        ))}
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
     flex: 1,
-    justifyContent: 'flex-start',
-    paddingTop: 50,
+    padding: 20,
+    paddingTop: 60
   },
   containerLight: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F9FAFB'
   },
   containerDark: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#111827'
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 16,
+    marginBottom: 32
   },
-  profileIcon: {
-    padding: 5,
-  },
-  bannerContainer: {
+  demoButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8
   },
-  bannerImage: {
-    width: '100%',
-    height: 150,
+  buttonLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  buttonDark: {
+    backgroundColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  demoButtonText: {
+    fontSize: 14,
+    fontWeight: '500'
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileButtonLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  profileButtonDark: {
+    backgroundColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4
   },
   title: {
-    fontSize: 28,
-    textAlign: 'center',
-    marginVertical: 16,
+    fontSize: 32,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8
   },
   description: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-    paddingHorizontal: 10,
+    marginBottom: 32,
+    opacity: 0.8
   },
-  actionButtonsContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  actionButton: {
+  featureGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007bff',
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    width: '80%',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingBottom: 20
+  },
+  featureCard: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16
+  },
+  featureCardLight: {
+    backgroundColor: '#fff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5, // For Android shadow
-    transitionProperty: 'background-color',
-    transitionDuration: '300ms',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
   },
-  actionButtonDark: {
-    backgroundColor: '#0056b3',
+  featureCardDark: {
+    backgroundColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  buttonIcon: {
-    marginLeft: 12,
-  },
-  //
-  // ------------------- Footer styles -------------------
-  //
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  logoutButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 8,
-    backgroundColor: '#ff4d4d',
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  //
-  // ------------------- Modal styles -------------------
-  //
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12
   },
-  modalContent: {
-    width: '80%',
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalContentLight: {
-    backgroundColor: '#fff',
-  },
-  modalContentDark: {
-    backgroundColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  modalTextLight: {
-    color: '#000',
-  },
-  modalTextDark: {
-    color: '#fff',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 10,
-  },
-  toggleLabel: {
+  featureTitle: {
     fontSize: 18,
-  },
-  closeButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
+    marginBottom: 8
   },
+  featureDescription: {
+    fontSize: 14,
+    opacity: 0.8,
+    lineHeight: 20
+  }
 });

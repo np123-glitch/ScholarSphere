@@ -1,6 +1,4 @@
-# main.py
-
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory, abort
 import os
 import subprocess
 import shutil
@@ -19,10 +17,9 @@ from pypdf import PdfReader
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, allow_headers=["Authorization", "Content-Type"])
 
-
 SECRET_KEY = "pcsk_5qb5ow_MWbqVcwCeNKyi1uwpR1kqgoimWpkV2JeUgzE8ouUCMvozvPcW1fRy3aBPeLnk54"
 
-pc = Pinecone(api_key="pcsk_3eNXoj_2fMMzVFpuLpaz414Ua5hcJrDiBiN3iywg2eW4rejonebqZGkqGh86QaPM4p1522")
+pc = Pinecone(api_key="pcsk_336VbM_N3MZuDxwDN9qHSzKmCyWbW9XWUbjWswiVqwrGJbMXhu7DdhKKokoXSKUdwvuHPM")
 assistant = pc.assistant.Assistant(assistant_name="official-assistant")
 
 USERS_FILE = 'users.json'
@@ -71,6 +68,10 @@ def remove_non_utf8(text):
     return text.encode("utf-8", "ignore").decode("utf-8")
 
 def process_pdf(filename):
+    """
+    Process PDF files by converting each page to an image using pdftoppm,
+    then applying Tesseract OCR to extract text.
+    """
     output_dir = "./output"
     os.makedirs(output_dir, exist_ok=True)
     text = ""
@@ -97,8 +98,36 @@ def process_pdf(filename):
     print(output_text_file)
     return output_text_file
 
-def process_file(filepath, file_type):
-    return process_pdf(filepath)
+def process_image(filepath):
+    """
+    Process image files directly using Tesseract OCR to extract text.
+    """
+    output_dir = "./output"
+    os.makedirs(output_dir, exist_ok=True)
+    base = os.path.basename(filepath)
+    filename_without_ext = os.path.splitext(base)[0]
+    output_base = os.path.join(output_dir, f"temp_output_{filename_without_ext}")
+    try:
+        subprocess.run(['tesseract', filepath, output_base, '--psm', '6'], check=True)
+        with open(output_base + ".txt", "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred during image OCR processing: {e}")
+        text = ""
+    output_text_file = os.path.join(output_dir, f"output_{filename_without_ext}.txt")
+    with open(output_text_file, "w", encoding="utf-8") as f:
+        f.write(text)
+    return output_text_file
+
+def process_file(filepath):
+    """
+    Determine the file type by its extension and process accordingly.
+    """
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext == ".pdf":
+        return process_pdf(filepath)
+    else:
+        return process_image(filepath)
 
 def list_files(username):
     return assistant.list_files(fiter=username)
@@ -134,12 +163,15 @@ def token_required(f):
     return decorated
 
 def process_and_upload(filepath, assistant, current_user):
-    transcription_path = None
+    """
+    Processes the uploaded file based on its type and uploads the OCR-extracted text.
+    PDFs are converted to images and then processed, while image files are processed directly.
+    """
     try:
-        processed_output = process_pdf(filepath)
+        processed_output = process_file(filepath)
         response = upload(processed_output, assistant, current_user)
         print(response)
-        print(f"PDF file {filepath} processed and uploaded successfully.")
+        print(f"File {filepath} processed and uploaded successfully.")
     except Exception as e:
         print(f"An error occurred while processing the file {filepath}: {e}")
     finally:
@@ -180,7 +212,7 @@ def upload_file(current_user):
             file.save(filepath)
             print(f"File saved to {filepath}")
 
-            # Start background thread for PDF processing
+            # Start background thread for file processing
             thread = threading.Thread(
                 target=process_and_upload,
                 args=(filepath, assistant, current_user),
@@ -381,10 +413,8 @@ def upload_profile_picture(current_user):
 
     return jsonify({'error': 'Invalid request method'}), 405
 
-
 @app.route('/files/<username>/<path:filename>', methods=['GET'])
 def serve_file(username, filename):
-
     user_upload_dir = os.path.join('./uploads', username)
     target_path = os.path.join(user_upload_dir, filename)
 
@@ -394,7 +424,50 @@ def serve_file(username, filename):
     # Serves the file from the directory
     return send_from_directory(user_upload_dir, filename, as_attachment=False)
 
+# Define the base directory where documents are stored
+DOCUMENTS_BASE_DIR = "./documents"
+
+# Allowed subdirectories for serving files
+ALLOWED_SUBDIRS = {"apbio", "apstat", "aphuman", "apphysics", "apprecal"}
+
+
+@app.route('/documents/<subdir>/<path:filename>', methods=['GET'])
+def serve_document(subdir, filename):
+    """
+    Serve files from specific subdirectories inside the 'documents' folder.
+    """
+    if subdir not in ALLOWED_SUBDIRS:
+        return jsonify({"error": "Access to this directory is not allowed"}), 403
+
+    directory_path = os.path.join(DOCUMENTS_BASE_DIR, subdir)
+
+    # Ensure the directory exists before serving files
+    if not os.path.exists(directory_path):
+        return jsonify({"error": "Requested directory does not exist"}), 404
+
+    # Ensure the requested file exists
+    file_path = os.path.join(directory_path, filename)
+    if not os.path.isfile(file_path):
+        return jsonify({"error": "File not found"}), 404
+
+    return send_from_directory(directory_path, filename, as_attachment=False)
+
+@app.route('/documents/<subject>', methods=['GET'])
+def get_files(subject):
+    documents_path = f'./documents/{subject}'
+    
+    if not os.path.exists(documents_path):
+        return jsonify([])
+
+    files = [
+        {"name": file, "url": f"http://scholarsphere.anythingnew.today/documents/{subject}/{file}"}
+        for file in os.listdir(documents_path)
+    ]
+
+    return jsonify(files), 200
+
+
+
 if __name__ == "__main__":
     # For local dev, might switch to your server’s IP
     app.run(debug=True, host='0.0.0.0', port=5000)
- 

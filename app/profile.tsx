@@ -1,5 +1,3 @@
-// components/Profile.tsx
-
 import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
@@ -9,13 +7,25 @@ import {
   Alert,
   Linking,
   Image,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthSession } from '@/components/AuthProvider';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import {
+  ArrowLeft,
+  Camera,
+  Mail,
+  Lock,
+  Shield,
+  LogOut,
+  Trash2,
+  ChevronRight,
+  User as UserIcon, // <-- Import "User" icon from lucide-react-native
+} from 'lucide-react-native';
 import { decodeJwt } from '@/utils/decodeJwt';
 import Config from '@/components/Config';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,14 +34,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function Profile() {
   const router = useRouter();
   const systemColorScheme = useColorScheme() || 'light';
-  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+  const [isDarkMode] = useState(systemColorScheme === 'dark');
   const { signOut, token } = useAuthSession();
 
   const [userName, setUserName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
-  // Load stored profile picture URL from AsyncStorage
+  // Load stored profile picture from AsyncStorage
   useEffect(() => {
     const loadProfilePic = async () => {
       try {
@@ -41,22 +52,16 @@ export default function Profile() {
         }
       } catch (error) {
         console.error('Failed to load profile picture:', error);
-        Alert.alert('Error', 'Failed to load profile picture.');
       }
     };
-
     loadProfilePic();
   }, []);
 
-  // Decode JWT and set user name
+  // Decode JWT to get user info
   useEffect(() => {
     if (token.current) {
       const decodedToken = decodeJwt(token.current);
-      if (decodedToken) {
-        setUserName(decodedToken.name || decodedToken.sub);
-      } else {
-        setUserName(null);
-      }
+      setUserName(decodedToken?.name || decodedToken?.sub || null);
       setIsLoading(false);
     } else {
       setUserName(null);
@@ -64,192 +69,228 @@ export default function Profile() {
     }
   }, [token]);
 
-  const toggleTheme = () => {
-    setIsDarkMode((prevMode) => !prevMode);
-  };
-
+  // Pick and upload a new profile picture
   const pickProfilePicture = async () => {
     try {
+      setImageLoading(true);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
       });
-  
-      // For newer versions of expo-image-picker, check result.assets
-      if (!result.cancelled && result.assets && result.assets.length > 0) {
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const localUri = result.assets[0].uri;
         const filename = localUri.split('/').pop() || 'profile.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image';
-  
-        // Create FormData to send the image file
-        let formData = new FormData();
+
+        const formData = new FormData();
         formData.append('file', {
           uri: localUri,
           name: filename,
           type: type,
         } as any);
-  
-        // Upload the profile picture to the new endpoint
-        const response = await fetch(
-          `${Config.API_BASE_URL}/upload-profile-picture`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${token.current}`,
-            },
-            body: formData,
-          }
-        );
+
+        // Adjust this to your server's upload endpoint
+        const response = await fetch(`${Config.API_BASE_URL}/upload-profile-picture`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token.current}`,
+          },
+          body: formData,
+        });
         const data = await response.json();
         if (response.ok) {
+          // data.url should be a FULLY QUALIFIED URL accessible by your device
           setProfilePic(data.url);
           await AsyncStorage.setItem('profilePicture', data.url);
         } else {
-          console.error(data.message);
-          Alert.alert('Upload Error', data.message || 'Failed to upload profile picture.');
+          Alert.alert(
+            'Upload Error',
+            data.message || 'Failed to upload profile picture.'
+          );
         }
       }
     } catch (error) {
-      console.error('Error picking or uploading profile picture:', error);
       Alert.alert('Error', 'Failed to pick or upload image.');
+    } finally {
+      setImageLoading(false);
     }
   };
-  
 
-  const logout = () => {
-    signOut();
-    router.replace('/login');
-  };
-
-  const deleteAccount = () => {
-    Alert.alert('Delete Account', 'Are you sure you want to delete your account?', [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        onPress: async () => {
-          try {
-            const response = await fetch(`${Config.API_BASE_URL}/auth/delete-account`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token.current}`,
-              },
-            });
-            if (response.ok) {
-              signOut();
-              Alert.alert('Success', 'Account deleted successfully.');
-              router.replace('./login');
-            }
-          } catch (error) {
-            console.error('Error deleting account:', error);
-            Alert.alert('Error', 'Failed to delete account.');
-          }
-        },
-      },
-    ]);
-  };
+  // Reusable menu button component
+  const MenuButton = ({
+    icon: Icon,
+    title,
+    onPress,
+    color = isDarkMode ? '#fff' : '#000',
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.menuButton,
+        isDarkMode ? styles.menuButtonDark : styles.menuButtonLight,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.menuButtonContent}>
+        <Icon size={20} color={color} />
+        <ThemedText type="body" style={styles.menuButtonText}>
+          {title}
+        </ThemedText>
+      </View>
+      <ChevronRight size={20} color={isDarkMode ? '#4B5563' : '#9CA3AF'} />
+    </TouchableOpacity>
+  );
 
   return (
     <ThemedView
-      style={[
-        styles.container,
-        isDarkMode ? styles.containerDark : styles.containerLight,
-      ]}
+      style={[styles.container, isDarkMode ? styles.containerDark : styles.containerLight]}
     >
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backIcon}
-          onPress={() => router.navigate('/(authenticated)/(tabs)')}
-          accessibilityLabel="Go Back"
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color={isDarkMode ? '#fff' : '#000'} />
+          <ArrowLeft size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
-
-        <ThemedText
-          type="title"
-          style={[styles.headerTitle, { flex: 1, textAlign: 'center' }, isDarkMode ? { color: '#fff' } : {}]}
-        >
-          Profile
-        </ThemedText>
-
-        <View style={styles.headerRightPlaceholder} />
       </View>
 
-      <View style={[styles.userCard, isDarkMode ? styles.userCardDark : styles.userCardLight]}>
-        {isLoading ? (
-          <ActivityIndicator size="large" color="#007AFF" />
-        ) : (
-          <>
+      {/* Scrollable Content */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Profile Section */}
+        <View style={styles.profileSection}>
+          <TouchableOpacity
+            style={styles.profileImageContainer}
+            onPress={pickProfilePicture}
+            disabled={imageLoading}
+          >
             {profilePic ? (
               <Image source={{ uri: profilePic }} style={styles.profileImage} />
             ) : (
-              <Ionicons name="person-circle" size={100} color={isDarkMode ? '#fff' : '#000'} style={styles.userIcon} />
+              // If there's no profile pic, show a user icon
+              <View
+                style={[
+                  styles.profileImagePlaceholder,
+                  isDarkMode ? styles.placeholderDark : styles.placeholderLight,
+                ]}
+              >
+                <UserIcon size={48} color={isDarkMode ? '#fff' : '#000'} />
+              </View>
             )}
-            <ThemedText type="name" style={[styles.userName, isDarkMode ? { color: '#fff' } : {}]}>
-              {userName || 'User'}
-            </ThemedText>
-            <TouchableOpacity style={styles.changePicButton} onPress={pickProfilePicture}>
-              <ThemedText type="button" style={styles.changePicButtonText}>
-                Change Profile Picture
-              </ThemedText>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+            <View
+              style={[
+                styles.cameraButton,
+                isDarkMode ? styles.cameraButtonDark : styles.cameraButtonLight,
+              ]}
+            >
+              <Camera size={16} color={isDarkMode ? '#fff' : '#000'} />
+            </View>
+          </TouchableOpacity>
 
-      {/* Other action buttons and footer remain unchanged */}
-      <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
-          onPress={() => {
-            Linking.openURL('https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab');
-          }}
-        >
-          <MaterialIcons name="link" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
-          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
-            Privacy Policy
+          <ThemedText type="title" style={styles.userName}>
+            {isLoading ? <ActivityIndicator size="small" /> : userName || 'User'}
           </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
-          onPress={() => {
-            Alert.alert('Contact Information', 'Email: neelprasad2008@gmail.com');
-          }}
-        >
-          <MaterialIcons name="email" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
-          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
-            Contact Us
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, isDarkMode ? styles.actionButtonDark : styles.actionButtonLight]}
-          onPress={() => {
-            Alert.alert('Send an email to reset your password', 'Email: neelprasad2008@gmail.com');
-          }}
-        >
-          <MaterialIcons name="password" size={20} color={isDarkMode ? '#fff' : '#000'} style={styles.actionIcon} />
-          <ThemedText type="button" style={[styles.actionButtonText, isDarkMode ? { color: '#fff' } : {}]}>
-            Reset Password
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
+        </View>
 
+        {/* Menu Section */}
+        <View style={styles.menuSection}>
+          <MenuButton
+            icon={Shield}
+            title="Privacy Policy"
+            onPress={() =>
+              Linking.openURL(
+                'https://www.termsfeed.com/live/d32c2fc6-6161-4437-8e1f-9ed144282fab'
+              )
+            }
+          />
+          <MenuButton
+            icon={Mail}
+            title="Contact Us"
+            onPress={() =>
+              Alert.alert('Contact Information', 'Email: neelprasad2008@gmail.com')
+            }
+          />
+          <MenuButton
+            icon={Lock}
+            title="Reset Password"
+            onPress={() =>
+              Alert.alert(
+                'Send an email to reset your password',
+                'Email: neelprasad2008@gmail.com'
+              )
+            }
+          />
+          {/* Add more MenuButtons if needed */}
+        </View>
+
+        {/* Add extra space at the bottom of the scroll */}
+        <View style={{ height: 120 }} />
+      </ScrollView>
+
+      {/* Footer Actions (Pinned to Bottom) */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <ThemedText type="button" style={styles.logoutButtonText}>
-            Logout
-          </ThemedText>
+        <TouchableOpacity
+          style={[styles.footerButton, styles.logoutButton]}
+          onPress={() => {
+            Alert.alert('Logout', 'Are you sure you want to logout?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Logout',
+                onPress: () => {
+                  signOut();
+                  router.replace('/login');
+                },
+                style: 'destructive',
+              },
+            ]);
+          }}
+        >
+          <LogOut size={20} color="#fff" />
+          <ThemedText style={styles.footerButtonText}>Logout</ThemedText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.logoutButton} onPress={deleteAccount}>
-          <ThemedText type="button" style={styles.logoutButtonText}>
-            Delete Account
-          </ThemedText>
+
+        <TouchableOpacity
+          style={[styles.footerButton, styles.deleteButton]}
+          onPress={() => {
+            Alert.alert(
+              'Delete Account',
+              'This action cannot be undone. Are you sure?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  onPress: async () => {
+                    try {
+                      const response = await fetch(
+                        `${Config.API_BASE_URL}/auth/delete-account`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${token.current}`,
+                          },
+                        }
+                      );
+                      if (response.ok) {
+                        signOut();
+                        router.replace('/login');
+                      }
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to delete account.');
+                    }
+                  },
+                  style: 'destructive',
+                },
+              ]
+            );
+          }}
+        >
+          <Trash2 size={20} color="#fff" />
+          <ThemedText style={styles.footerButtonText}>Delete Account</ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -258,110 +299,136 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    paddingTop: 60,
     flex: 1,
-    justifyContent: 'flex-start',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   containerLight: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F9FAFB',
   },
   containerDark: {
-    backgroundColor: '#111',
+    backgroundColor: '#111827',
   },
   header: {
-    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  profileSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  backIcon: {
-    padding: 5,
-  },
-  headerRightPlaceholder: {
-    width: 34,
-  },
-  userCard: {
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  userCardLight: {
-    backgroundColor: '#f9f9f9',
-  },
-  userCardDark: {
-    backgroundColor: '#1e1e1e',
-  },
-  userIcon: {
-    marginBottom: 15,
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 16,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 15,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  profileImagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderLight: {
+    backgroundColor: '#E5E7EB',
+  },
+  placeholderDark: {
+    backgroundColor: '#374151',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraButtonLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cameraButtonDark: {
+    backgroundColor: '#374151',
   },
   userName: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '600',
+    marginBottom: 4,
   },
-  changePicButton: {
-    marginTop: 10,
+  menuSection: {
+    gap: 12,
   },
-  changePicButtonText: {
-    fontSize: 16,
-    color: '#007bff',
-    textDecorationLine: 'underline',
-  },
-  actionButtonsContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  actionButton: {
+  menuButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '80%',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginVertical: 8,
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  actionButtonLight: {
-    backgroundColor: '#e0e0e0',
+  menuButtonLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  actionButtonDark: {
-    backgroundColor: '#333',
+  menuButtonDark: {
+    backgroundColor: '#1F2937',
   },
-  actionIcon: {
-    marginRight: 10,
+  menuButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  actionButtonText: {
+  menuButtonText: {
     fontSize: 16,
     fontWeight: '500',
   },
   footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    gap: 12,
+  },
+  footerButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 0,
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
   },
-  logoutButton: {
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 8,
-    backgroundColor: '#ff4d4d',
-    marginBottom: 20,
-  },
-  logoutButtonText: {
+  footerButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  logoutButton: {
+    backgroundColor: '#6366F1',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
   },
 });

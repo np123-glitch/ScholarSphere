@@ -1,785 +1,547 @@
-// src/screens/TestFlashcardScreen.tsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
-  Alert,
-  FlatList,
+  TouchableOpacity,
+  TextInput,
   ScrollView,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
+import { CheckCircle2, XCircle } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import Config from '@/components/Config';
 import { useAuthSession } from '@/components/AuthProvider';
+import Config from '@/components/Config';
 
-type TestQuestion = {
+interface TestQuestion {
   question: string;
-  options: { A: string; B: string; C: string; D: string };
-  correctAnswer: keyof TestQuestion['options'];
-};
+  options: string[];
+  correctAnswer: number;
+}
 
-type TestSet = {
-  id: string;
-  topic: string;
-  difficulty: number;
-  numQuestions: number;
-  createdAt: string;
-  questions: TestQuestion[];
-};
-
-export default function TestFlashcardScreen() {
+export default function QuizScreen() {
+  const router = useRouter();
+  const isDark = useColorScheme() === 'dark';
   const { token, signOut } = useAuthSession();
+  
   const [topic, setTopic] = useState('');
-  const [difficulty, setDifficulty] = useState<number>(5);
-  const [numQuestions, setNumQuestions] = useState<number>(5);
+  const [difficulty, setDifficulty] = useState(5);
+  const [numQuestions, setNumQuestions] = useState(5);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<{ [key: number]: keyof TestQuestion['options'] }>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
   const [loading, setLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [savedTests, setSavedTests] = useState<TestSet[]>([]);
-  const [selectedSavedTest, setSelectedSavedTest] = useState<TestSet | null>(null);
-  const [recentTopics, setRecentTopics] = useState<string[]>([]);
-  const [showRecentTopics, setShowRecentTopics] = useState<boolean>(false);
 
-  const colorScheme = useColorScheme() || 'light';
-  const isDarkMode = colorScheme === 'dark';
   const baseUrl = Config.API_BASE_URL;
 
-  useEffect(() => {
-    loadSavedTests();
-    loadRecentTopics();
-  }, []);
-
-  const loadSavedTests = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem('@test_sets');
-      if (jsonValue) {
-        const sets: TestSet[] = JSON.parse(jsonValue);
-        setSavedTests(sets);
-      }
-    } catch (e) {
-      console.error('Failed to load test sets:', e);
-    }
-  };
-
-  const saveTestSets = async (sets: TestSet[]) => {
-    try {
-      const jsonValue = JSON.stringify(sets);
-      await AsyncStorage.setItem('@test_sets', jsonValue);
-    } catch (e) {
-      console.error('Failed to save test sets:', e);
-    }
-  };
-
-  const loadRecentTopics = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem('@recent_topics');
-      if (jsonValue) {
-        const topics: string[] = JSON.parse(jsonValue);
-        setRecentTopics(topics);
-      }
-    } catch (e) {
-      console.error('Failed to load recent topics:', e);
-    }
-  };
-
-  const saveRecentTopics = async (topics: string[]) => {
-    try {
-      const jsonValue = JSON.stringify(topics);
-      await AsyncStorage.setItem('@recent_topics', jsonValue);
-    } catch (e) {
-      console.error('Failed to save recent topics:', e);
-    }
-  };
-
-  const addToRecentTopics = async (newTopic: string) => {
-    let updatedTopics = [...recentTopics];
-    updatedTopics = updatedTopics.filter((t) => t.toLowerCase() !== newTopic.toLowerCase());
-    updatedTopics.unshift(newTopic);
-    if (updatedTopics.length > 10) {
-      updatedTopics = updatedTopics.slice(0, 10);
-    }
-    setRecentTopics(updatedTopics);
-    await saveRecentTopics(updatedTopics);
-  };
-
-  const handleGenerateTest = async () => {
+  const handleGenerateQuiz = async () => {
     if (!topic.trim()) {
-      Alert.alert('Validation Error', 'Please enter a topic.');
+      Alert.alert('Error', 'Please enter a topic');
       return;
     }
-    setLoading(true);
-    setIsSubmitted(false);
-    setQuestions([]);
-    setCurrentQuestionIndex(0);
-    setUserAnswers({});
-    setSelectedSavedTest(null);
 
+    setLoading(true);
     try {
-      const message = `
-        Generate ${numQuestions} multiple-choice test questions about "${topic}"
-        with difficulty level ${difficulty} on a scale of 1-10.
-        Each question must be on its own line, using the exact format:
-        [question:optionA:optionB:optionC:optionD:correctAnswer]
-        Do not include any explanations or explanations in the questions. 
-        
-        For example a response for 5 questions would be 
-        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
-        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
-        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
-        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
-        [question:optionA:optionB:optionC:optionD:correctAnswerLetter(A, B, C, or D)]\n
-        Do not include any additional text in your response such as a question number or a reference to the text.
-        Make the answer choices as close to being correct as possible but make the correct answer be clearly the correct answer.
-      `;
       const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token.current}`,
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message: `Generate ${numQuestions} multiple-choice questions about "${topic}" with difficulty level ${difficulty}/10. Format each question as: Q: [question] A: [option1] B: [option2] C: [option3] D: [option4] Correct: [A/B/C/D]`,
+        }),
       });
-      const data = await response.json();
-      console.log(data);
-      if (!response.ok) {
-              // Handle different types of errors
-              let errorMessage = data.message || data.error || 'Something went wrong!';
-      
-              if (response.status === 401) {
-                Alert.alert(
-                            'Session Expired',
-                            'Your session has expired. Please log out and log in again.',
-                            [
-                              {
-                                text: 'OK',
-                                onPress: () => signOut(),
-                              },
-                            ]
-                          );
-              } else if (response.status === 500) {
-                errorMessage = 'Server error! Please try again later.';
-              }
-      
-              console.error('Error:', errorMessage);
-              Alert.alert('Error', errorMessage);
-            }
-      if (response.ok && data?.response) {
-        const lines = data.response
-          .split('\n')
-          .map((line: string) => line.trim())
-          .filter(Boolean);
-          const parsedQuestions: TestQuestion[] = lines
-          .map((qLine: string) => {
-            // Remove a leading '[' and a trailing ']' if they exist.
-            const innerText = qLine.replace(/^\[|\]$/g, '');
-            const parts = innerText.split(':');
-            if (parts.length < 6) return null;
-            const [questionText, optA, optB, optC, optD, rawCorrect] = parts;
-            const correctAnswer = rawCorrect.trim().toUpperCase() as keyof TestQuestion['options'];
-            if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) return null;
-            return {
-              question: questionText.trim(),
-              options: {
-                A: optA.trim(),
-                B: optB.trim(),
-                C: optC.trim(),
-                D: optD.trim(),
-              },
-              correctAnswer,
-            };
-          })
-          .filter(Boolean) as TestQuestion[];
-        setQuestions(parsedQuestions);
-        setCurrentQuestionIndex(0);
-        setUserAnswers({});
-        setIsSubmitted(false);
 
-        const newSet: TestSet = {
-          id: Date.now().toString(),
-          topic: topic.trim(),
-          difficulty,
-          numQuestions,
-          createdAt: new Date().toISOString(),
-          questions: parsedQuestions,
-        };
-        const updatedSets = [newSet, ...savedTests];
-        setSavedTests(updatedSets);
-        await saveTestSets(updatedSets);
-        await addToRecentTopics(newSet.topic);
-      } else {
-        console.error('Failed to generate test:', data.error || 'Unknown error');
-        Alert.alert('Generation Error', data.error || 'Failed to generate test.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.message === 'Token has expired!') {
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please log out and log in again.',
+            [{ text: 'OK', onPress: () => signOut() }]
+          );
+        } else {
+          Alert.alert('Error', data.message || 'Failed to generate quiz');
+        }
+        return;
       }
+
+      const parsedQuestions = parseQuestions(data.response);
+      setQuestions(parsedQuestions);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswers({});
+      setIsSubmitted(false);
     } catch (error) {
-      console.error('Error generating test:', error);
-      Alert.alert('Error', 'An unexpected error occurred while generating the test.');
+      Alert.alert('Error', 'Failed to generate quiz');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectAnswer = (option: keyof TestQuestion['options']) => {
+  const parseQuestions = (response: string): TestQuestion[] => {
+    const questionRegex =
+      /Q: (.*?)\nA: (.*?)\nB: (.*?)\nC: (.*?)\nD: (.*?)\nCorrect: ([A-D])/g;
+    const questions: TestQuestion[] = [];
+    let match;
+
+    while ((match = questionRegex.exec(response)) !== null) {
+      const [_, question, optionA, optionB, optionC, optionD, correct] = match;
+      const correctIndex = correct.charCodeAt(0) - 'A'.charCodeAt(0);
+
+      questions.push({
+        question: question.trim(),
+        options: [optionA, optionB, optionC, optionD].map(opt => opt.trim()),
+        correctAnswer: correctIndex,
+      });
+    }
+
+    return questions;
+  };
+
+  const handleSelectAnswer = (questionIndex: number, optionIndex: number) => {
     if (!isSubmitted) {
-      setUserAnswers((prev) => ({
+      setSelectedAnswers(prev => ({
         ...prev,
-        [currentQuestionIndex]: option,
+        [questionIndex]: optionIndex,
       }));
     }
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
-  };
-
   const handleSubmit = () => {
+    if (Object.keys(selectedAnswers).length < questions.length) {
+      Alert.alert('Warning', 'Please answer all questions before submitting');
+      return;
+    }
     setIsSubmitted(true);
   };
 
-  const renderScore = () => {
+  const calculateScore = () => {
     if (!isSubmitted) return null;
-    let correctCount = 0;
-    questions.forEach((q, idx) => {
-      if (userAnswers[idx] === q.correctAnswer) {
-        correctCount++;
-      }
-    });
-    return (
-      <View style={styles.scoreContainer}>
-        <Text style={[styles.scoreText, isDarkMode ? { color: '#fff' } : {}]}>
-          You scored {correctCount} / {questions.length}
-        </Text>
-      </View>
-    );
-  };
 
-  const handleSelectSavedTest = (set: TestSet) => {
-    setSelectedSavedTest(set);
-    setQuestions(set.questions);
-    setCurrentQuestionIndex(0);
-    setUserAnswers({});
-    setIsSubmitted(false);
-  };
+    const correct = questions.reduce((acc, q, idx) => {
+      return acc + (selectedAnswers[idx] === q.correctAnswer ? 1 : 0);
+    }, 0);
 
-  const handleDeleteSavedTest = (setId: string) => {
-    Alert.alert('Delete Test Set', 'Are you sure you want to delete this test set?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          const updatedSets = savedTests.filter((set) => set.id !== setId);
-          setSavedTests(updatedSets);
-          await saveTestSets(updatedSets);
-          if (selectedSavedTest?.id === setId) {
-            setSelectedSavedTest(null);
-            setQuestions([]);
-            setCurrentQuestionIndex(0);
-            setUserAnswers({});
-            setIsSubmitted(false);
-          }
-        },
-      },
-    ]);
+    return `${correct}/${questions.length}`;
   };
-
-  const handleSelectRecentTopic = (selectedTopic: string) => {
-    setTopic(selectedTopic);
-    setShowRecentTopics(false);
-  };
-
-  const handleFocusTopic = () => {
-    setShowRecentTopics(true);
-  };
-
-  const handleBlurTopic = () => {
-    setTimeout(() => setShowRecentTopics(false), 100);
-  };
-
-  const difficulties = Array.from({ length: 10 }, (_, i) => i + 1);
-  const questionCounts = Array.from({ length: 20 }, (_, i) => i + 1);
-
-  const currentQuestion = questions[currentQuestionIndex] || {
-    question: '',
-    options: { A: '', B: '', C: '', D: '' },
-    correctAnswer: 'A',
-  };
-  const userSelected = userAnswers[currentQuestionIndex];
 
   return (
-    <ParallaxScrollView>
-      <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
-          Multiple-Choice Exam
+    <ThemedView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={styles.headerTitle}>
+          Quiz Mode
         </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
-          Example: "Absolutism"
-        </ThemedText>
+        <View style={{ width: 24 }} />
+      </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, isDarkMode ? styles.inputDark : {}]}
-            value={topic}
-            onChangeText={setTopic}
-            placeholder="Enter topic"
-            placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
-            onFocus={handleFocusTopic}
-            onBlur={handleBlurTopic}
-          />
-          {showRecentTopics && recentTopics.length > 0 && (
-            <View
-              style={[
-                styles.recentTopicsContainer,
-                isDarkMode ? styles.recentTopicsContainerDark : {},
-              ]}
-            >
-              {recentTopics.map((t, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.recentTopicItem}
-                  onPress={() => handleSelectRecentTopic(t)}
-                >
-                  <Text style={[styles.recentTopicText, isDarkMode ? { color: '#fff' } : {}]}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+      {/* Quiz Setup */}
+      <View style={styles.setupContainer}>
+        <TextInput
+          style={[
+            styles.input,
+            isDark ? styles.inputDark : styles.inputLight,
+          ]}
+          placeholder="Enter topic (e.g., World War II)"
+          placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+          value={topic}
+          onChangeText={setTopic}
+        />
+
+        <View style={styles.settingsRow}>
+          <View
+            style={[
+              styles.settingItem,
+              isDark ? styles.settingItemDark : styles.settingItemLight,
+            ]}
+          >
+            <ThemedText type="body" style={styles.settingLabel}>
+              Difficulty: {difficulty}/10
+            </ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                ]}
+                onPress={() => setDifficulty(Math.max(1, difficulty - 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>
+                  -
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                ]}
+                onPress={() => setDifficulty(Math.min(10, difficulty + 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>
+                  +
+                </ThemedText>
+              </TouchableOpacity>
             </View>
-          )}
-        </View>
-
-        <View style={styles.sideBySidePickerContainer}>
-          <View style={styles.scrollColumn}>
-            <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
-              Difficulty
-            </Text>
-            <ScrollView style={styles.scrollableList}>
-              {difficulties.map((diff) => (
-                <TouchableOpacity
-                  key={diff}
-                  style={[
-                    styles.listItem,
-                    difficulty === diff && styles.listItemSelected,
-                    isDarkMode ? styles.listItemDark : {},
-                  ]}
-                  onPress={() => setDifficulty(diff)}
-                >
-                  <Text style={[styles.listItemText, isDarkMode ? { color: '#fff' } : {}]}>
-                    Level {diff}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
 
-          <View style={styles.scrollColumn}>
-            <Text style={[styles.pickerLabel, isDarkMode ? { color: '#fff' } : {}]}>
-              Questions
-            </Text>
-            <ScrollView style={styles.scrollableList}>
-              {questionCounts.map((q) => (
-                <TouchableOpacity
-                  key={q}
-                  style={[
-                    styles.listItem,
-                    numQuestions === q && styles.listItemSelected,
-                    isDarkMode ? styles.listItemDark : {},
-                  ]}
-                  onPress={() => setNumQuestions(q)}
-                >
-                  <Text style={[styles.listItemText, isDarkMode ? { color: '#fff' } : {}]}>
-                    {q} Qs
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          <View
+            style={[
+              styles.settingItem,
+              isDark ? styles.settingItemDark : styles.settingItemLight,
+            ]}
+          >
+            <ThemedText type="body" style={styles.settingLabel}>
+              Questions: {numQuestions}
+            </ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                ]}
+                onPress={() => setNumQuestions(Math.max(1, numQuestions - 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>
+                  -
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                ]}
+                onPress={() => setNumQuestions(Math.min(20, numQuestions + 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>
+                  +
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         <TouchableOpacity
-          style={[styles.buttonGenerate, isDarkMode ? styles.buttonGenerateDark : {}]}
-          onPress={handleGenerateTest}
+          style={[
+            styles.generateButton,
+            isDark ? styles.buttonDark : styles.buttonLight,
+            loading && styles.buttonDisabled,
+          ]}
+          onPress={handleGenerateQuiz}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Generate Test</Text>
+            <ThemedText type="body" style={styles.buttonText}>
+              Generate Quiz
+            </ThemedText>
           )}
         </TouchableOpacity>
+      </View>
 
-        <ThemedView style={styles.savedSection}>
-          <ThemedText type="subtitle" style={styles.savedTitle}>
-            Saved Test Sets
-          </ThemedText>
-          {savedTests.length === 0 ? (
-            <Text style={[styles.noSavedText, isDarkMode ? { color: '#fff' } : {}]}>
-              No saved test sets.
-            </Text>
-          ) : (
-            savedTests.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.savedSetItem,
-                  isDarkMode ? styles.savedSetItemDark : {},
-                ]}
-                onPress={() => handleSelectSavedTest(item)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.savedSetTitle, isDarkMode ? { color: '#fff' } : {}]}>
-                    {item.topic}
-                  </Text>
-                  <Text style={[styles.savedSetDetails, isDarkMode ? { color: '#ccc' } : {}]}>
-                    Difficulty: {item.difficulty} • {item.numQuestions} questions •{' '}
-                    {new Date(item.createdAt).toLocaleString()}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => handleDeleteSavedTest(item.id)} style={styles.deleteButton}>
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </TouchableOpacity>
-              </TouchableOpacity>
-            ))
-          )}
-        </ThemedView>
-
-        {questions.length > 0 && (
-          <View style={styles.testContainer}>
-            <Text style={[styles.counterText, isDarkMode ? { color: '#fff' } : {}]}>
+      {/* Quiz Content */}
+      {questions.length > 0 && (
+        <ScrollView style={styles.quizContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.questionContainer}>
+            <ThemedText type="body" style={styles.questionCounter}>
               Question {currentQuestionIndex + 1} of {questions.length}
-            </Text>
-            <View
-              style={[
-                styles.questionContainer,
-                isDarkMode ? styles.questionContainerDark : {},
-              ]}
-            >
-              <Text style={[styles.questionText, { color: isDarkMode ? '#fff' : '#000' }]}>
-                {currentQuestion.question}
-              </Text>
-            </View>
+            </ThemedText>
+
+            <ThemedText type="title" style={styles.questionText}>
+              {questions[currentQuestionIndex].question}
+            </ThemedText>
+
             <View style={styles.optionsContainer}>
-              {Object.entries(currentQuestion.options).map(([key, val]) => {
-                const isSelected = userAnswers[currentQuestionIndex] === key;
-                const isCorrect = isSubmitted && key === currentQuestion.correctAnswer;
-                const isWrongSelection = isSubmitted && isSelected && key !== currentQuestion.correctAnswer;
+              {questions[currentQuestionIndex].options.map((option, index) => {
+                const isSelected = selectedAnswers[currentQuestionIndex] === index;
+                const isCorrect =
+                  isSubmitted && index === questions[currentQuestionIndex].correctAnswer;
+                const isWrong = isSubmitted && isSelected && !isCorrect;
+
                 return (
                   <TouchableOpacity
-                    key={key}
+                    key={index}
                     style={[
                       styles.optionButton,
-                      isDarkMode ? styles.optionButtonDark : {},
-                      isSelected && !isSubmitted ? styles.optionSelected : {},
-                      isCorrect ? styles.optionCorrect : {},
-                      isWrongSelection ? styles.optionWrong : {},
+                      isDark ? styles.optionDark : styles.optionLight,
+                      isSelected && styles.selectedOption,
+                      isCorrect && styles.correctOption,
+                      isWrong && styles.wrongOption,
                     ]}
-                    onPress={() => handleSelectAnswer(key as keyof TestQuestion['options'])}
+                    onPress={() => handleSelectAnswer(currentQuestionIndex, index)}
+                    disabled={isSubmitted}
                   >
-                    <Text style={[styles.optionText, isDarkMode ? { color: '#fff' } : {}]}>
-                      {key}) {val}
-                    </Text>
+                    <ThemedText type="body" style={styles.optionText}>
+                      {String.fromCharCode(65 + index)}. {option}
+                    </ThemedText>
+                    {isSubmitted && (isCorrect || isWrong) && (
+                      <View style={styles.resultIcon}>
+                        {isCorrect ? (
+                          <CheckCircle2 size={20} color="#22C55E" />
+                        ) : (
+                          <XCircle size={20} color="#EF4444" />
+                        )}
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
-            <View style={styles.navButtonsContainer}>
+          </View>
+
+          <View style={styles.navigationContainer}>
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                isDark ? styles.buttonDark : styles.buttonLight,
+                currentQuestionIndex === 0 && styles.buttonDisabled,
+              ]}
+              onPress={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentQuestionIndex === 0}
+            >
+              <ThemedText type="body" style={styles.buttonText}>
+                Previous
+              </ThemedText>
+            </TouchableOpacity>
+
+            {currentQuestionIndex < questions.length - 1 ? (
               <TouchableOpacity
-                style={[
-                  styles.navButton,
-                  isDarkMode ? styles.navButtonDark : {},
-                  { marginRight: 8 },
-                ]}
-                onPress={handlePrev}
-                disabled={currentQuestionIndex <= 0}
+                style={[styles.navButton, isDark ? styles.buttonDark : styles.buttonLight]}
+                onPress={() =>
+                  setCurrentQuestionIndex(prev =>
+                    Math.min(questions.length - 1, prev + 1)
+                  )
+                }
               >
-                <Text style={styles.navButtonText}>Back</Text>
+                <ThemedText type="body" style={styles.buttonText}>
+                  Next
+                </ThemedText>
               </TouchableOpacity>
-              {currentQuestionIndex < questions.length - 1 && (
-                <TouchableOpacity
-                  style={[styles.navButton, isDarkMode ? styles.navButtonDark : {}]}
-                  onPress={handleNext}
-                >
-                  <Text style={styles.navButtonText}>Next</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            {currentQuestionIndex === questions.length - 1 && !isSubmitted && (
+            ) : !isSubmitted ? (
               <TouchableOpacity
                 style={[
-                  styles.buttonSubmit,
-                  isDarkMode ? styles.buttonSubmitDark : {},
-                  { marginTop: 12, paddingHorizontal: 16, paddingVertical: 16 },
+                  styles.submitButton,
+                  isDark ? styles.submitButtonDark : styles.submitButtonLight,
                 ]}
                 onPress={handleSubmit}
               >
-                <Text style={styles.buttonText}>Submit Test</Text>
+                <ThemedText type="body" style={styles.buttonText}>
+                  Submit Quiz
+                </ThemedText>
               </TouchableOpacity>
-            )}
-            {renderScore()}
+            ) : null}
           </View>
-        )}
-      </ThemedView>
-    </ParallaxScrollView>
+
+          {isSubmitted && (
+            <View style={styles.scoreContainer}>
+              <ThemedText type="title" style={styles.scoreText}>
+                Your Score: {calculateScore()}
+              </ThemedText>
+            </View>
+          )}
+        </ScrollView>
+      )}
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 15,
-    marginBottom: 16,
+    flex: 1,
+    padding: 16,
+    paddingTop: 60,
   },
-  title: {
-    textAlign: 'center',
-    marginVertical: 16,
-    fontSize: 32,
-    fontWeight: 'bold',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  subtitle: {
-    textAlign: 'center',
-    marginVertical: 0,
-    paddingBottom: 16,
-    fontSize: 16,
-    color: '#666',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
   },
-  inputContainer: {
-    marginHorizontal: 16,
-    position: 'relative',
+
+  // ---- SETUP SECTION ----
+  setupContainer: {
+    gap: 16,
+    marginBottom: 24,
   },
   input: {
-    padding: 12,
-    borderRadius: 8,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    backgroundColor: '#f0f0f0',
-    zIndex: 1,
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  inputLight: {
+    backgroundColor: '#F3F4F6',
+    color: '#1F2937',
   },
   inputDark: {
-    borderColor: '#555',
-    backgroundColor: '#555',
-    color: '#fff',
+    backgroundColor: '#374151',
+    color: '#F9FAFB',
   },
-  recentTopicsContainer: {
-    position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderTopWidth: 0,
-    maxHeight: 150,
-    zIndex: 2,
-  },
-  recentTopicsContainerDark: {
-    backgroundColor: '#444',
-    borderColor: '#555',
-  },
-  recentTopicItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  recentTopicText: {
-    fontSize: 16,
-  },
-  sideBySidePickerContainer: {
+
+  settingsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 16,
+    gap: 12,
   },
-  scrollColumn: {
+  settingItem: {
     flex: 1,
-    marginHorizontal: 4,
-    alignItems: 'center',
+    borderRadius: 12,
+    padding: 12,
   },
-  scrollableList: {
-    maxHeight: 150,
-    width: '100%',
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
+  settingItemLight: {
+    backgroundColor: '#F3F4F6',
   },
-  pickerLabel: {
-    marginTop: 8,
-    fontSize: 16,
+  settingItemDark: {
+    backgroundColor: '#374151',
   },
-  listItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderColor: '#ccc',
+  settingLabel: {
+    marginBottom: 8,
+    fontSize: 14,
   },
-  listItemDark: {
-    borderColor: '#666',
+  settingControls: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  listItemSelected: {
-    backgroundColor: '#007bff33',
-  },
-  listItemText: {
-    fontSize: 16,
-  },
-  buttonGenerate: {
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
+  controlButton: {
+    flex: 1,
+    height: 36,
     borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 16,
+    justifyContent: 'center',
   },
-  buttonGenerateDark: {
-    backgroundColor: '#0056b3',
+  controlButtonLight: {
+    backgroundColor: '#E5E7EB',
+  },
+  controlButtonDark: {
+    backgroundColor: '#4B5563',
+  },
+  controlText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+
+  generateButton: {
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLight: {
+    backgroundColor: '#4F46E5',
+  },
+  buttonDark: {
+    backgroundColor: '#6366F1',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  savedSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  savedTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  noSavedText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  savedSetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    marginBottom: 8,
-  },
-  savedSetItemDark: {
-    backgroundColor: '#333',
-  },
-  savedSetTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  savedSetDetails: {
-    fontSize: 14,
-    color: '#666',
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteButtonText: {
-    color: '#dc3545',
-    fontWeight: 'bold',
-  },
-  testContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  counterText: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
-    textAlign: 'center',
+
+  // ---- QUIZ SECTION ----
+  quizContent: {
+    flex: 1,
   },
   questionContainer: {
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    width: '100%',
+    gap: 16,
+    marginBottom: 24,
   },
-  questionContainerDark: {
-    backgroundColor: '#555',
+  questionCounter: {
+    fontSize: 14,
+    opacity: 0.7,
   },
   questionText: {
-    fontSize: 18,
-    textAlign: 'center',
+    fontSize: 20,
+    lineHeight: 28,
   },
   optionsContainer: {
-    width: '100%',
-    marginBottom: 16,
+    gap: 12,
   },
   optionButton: {
-    marginVertical: 6,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#e9ecef',
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  optionButtonDark: {
-    backgroundColor: '#555',
+  optionLight: {
+    backgroundColor: '#F3F4F6',
+  },
+  optionDark: {
+    backgroundColor: '#374151',
+  },
+  selectedOption: {
+    borderWidth: 2,
+    borderColor: '#4F46E5',
+  },
+  correctOption: {
+    backgroundColor: '#22C55E20',
+  },
+  wrongOption: {
+    backgroundColor: '#EF444420',
   },
   optionText: {
+    flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#fff', // Ensures text is visible on dark backgrounds
   },
-  optionSelected: {
-    borderWidth: 2,
-    borderColor: '#007bff',
+  resultIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  optionCorrect: {
-    backgroundColor: '#28a745',
-  },
-  optionWrong: {
-    backgroundColor: '#dc3545',
-  },
-  navButtonsContainer: {
+
+  navigationContainer: {
     flexDirection: 'row',
-    marginTop: 8,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 24,
   },
   navButton: {
-    backgroundColor: '#17a2b8',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    paddingBottom: 12,
-  },
-  navButtonDark: {
-    backgroundColor: '#138496',
-  },
-  navButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonSubmit: {
-    backgroundColor: '#ffc107',
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
     alignItems: 'center',
-    borderRadius: 8,
-    width: '100%',
+    justifyContent: 'center',
   },
-  buttonSubmitDark: {
-    backgroundColor: '#e0a800',
+  submitButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  submitButtonLight: {
+    backgroundColor: '#22C55E',
+  },
+  submitButtonDark: {
+    backgroundColor: '#059669',
+  },
+
+  // ---- SCORE SECTION ----
   scoreContainer: {
-    marginTop: 16,
     alignItems: 'center',
+    marginBottom: 24,
   },
   scoreText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '600',
   },
 });

@@ -9,315 +9,319 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
-  Animated
+  Animated,
+  Appearance
 } from 'react-native';
-import Markdown from 'react-native-markdown-display';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import Config from '@/components/Config';
-import { useAuthSession } from '@/components/AuthProvider';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Send } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
-import { ThemeProvider } from '@react-navigation/native';
+import { ThemedText } from '@/components/ThemedText';
+import { useAuthSession } from '@/components/AuthProvider';
+import Config from '@/components/Config';
 
-const TypingIndicator = ({ isDarkMode }) => {
-  const dotAnimations = [new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)];
+interface Message {
+  sender: 'user' | 'bot';
+  text: string;
+}
+
+const TypingIndicator = ({ isDark }: { isDark: boolean }) => {
+  const dotAnimations = [
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current
+  ];
 
   useEffect(() => {
-    const animateDots = () => {
-      const animations = dotAnimations.map((dot, index) => 
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(dot, {
-              toValue: 1,
-              duration: 300,
-              delay: index * 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(dot, {
-              toValue: 0,
-              duration: 300,
-              useNativeDriver: true,
-            })
-          ])
-        )
+    const animate = () => {
+      const animations = dotAnimations.map((dot, index) =>
+        Animated.sequence([
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 400,
+            delay: index * 200,
+            useNativeDriver: true
+          }),
+          Animated.timing(dot, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true
+          })
+        ])
       );
-
-      Animated.parallel(animations).start();
+      Animated.loop(Animated.parallel(animations)).start();
     };
 
-    animateDots();
-    return () => Animated.timing(new Animated.Value(0)).stop();
+    animate();
+    return () => dotAnimations.forEach(dot => dot.stopAnimation());
   }, []);
-
-  const getDotStyle = (dot) => ({
-    transform: [
-      {
-        translateY: dot.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -5],
-        })
-      }
-    ],
-    opacity: dot.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 1]
-    })
-  });
 
   return (
     <View style={[
-      styles.messageBubble, 
-      styles.botBubble, 
-      isDarkMode && styles.botBubbleDark,
-      { width: 80, paddingVertical: 12 }
+      styles.typingContainer,
+      isDark ? styles.typingContainerDark : styles.typingContainerLight
     ]}>
-      <View style={styles.typingContainer}>
-        {dotAnimations.map((dot, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.typingDot,
-              isDarkMode && styles.typingDotDark,
-              getDotStyle(dot)
-            ]}
-          />
-        ))}
-      </View>
+      {dotAnimations.map((dot, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.typingDot,
+            isDark ? styles.typingDotDark : styles.typingDotLight,
+            {
+              transform: [{
+                translateY: dot.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -8]
+                })
+              }],
+              opacity: dot.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 1]
+              })
+            }
+          ]}
+        />
+      ))}
     </View>
   );
 };
 
-export default function HomeScreen() {
-  const [loading, setLoading] = useState(false);
+export default function ChatScreen() {
+  const router = useRouter();
+  // Use Appearance API to get the color scheme
+  const colorScheme = Appearance.getColorScheme() || 'light';
+  const isDark = colorScheme === 'dark';
+
   const { token, signOut } = useAuthSession();
-  const [text, setText] = useState('');
-  const [messages, setMessages] = useState([
-    { 
-      sender: 'bot', 
-      text: "👋 Hello! I'm your friendly AI assistant. I'm here to help answer your questions, provide information, or just chat! \n\nHere's what I can do:\n- Explain complex concepts in simple terms\n- Help with research and learning\n- Generate creative ideas\n- And much more!\n\nHow can I assist you today? 😊\n\n*Note: I'm still learning, so please be patient with me!*",
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      sender: 'bot',
+      text: "👋 Hi! I'm your ScholarSphere study assistant based on uploaded content. I can help you understand complex topics, answer questions, and provide explanations. What would you like to learn about today?"
     }
   ]);
-  const colorScheme = useColorScheme() || 'light';
-  const isDarkMode = colorScheme === 'dark';
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+
   const baseUrl = Config.API_BASE_URL;
-  const insets = useSafeAreaInsets();
-  const flatListRef = useRef(null);
 
   const handleSend = async () => {
-    if (!text.trim() || loading) return;
+    if (!input.trim() || loading) return;
 
-    const userMessage = { sender: 'user', text: text.trim() };
+    const userMessage = { sender: 'user' as const, text: input.trim() };
     setMessages(prev => [...prev, userMessage]);
-    setText('');
+    setInput('');
     setLoading(true);
 
     try {
-      const response = await fetch(baseUrl + '/chat', {
+      const response = await fetch(`${baseUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token?.current}`,
+          'Authorization': `Bearer ${token.current}`,
         },
-        body: JSON.stringify({
-          message: text + ". Respond using markdown formatting with emojis when appropriate."
-        }),
+        body: JSON.stringify({ message: input }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        if (result.message === 'Token has expired!') {
+        if (data.message === 'Token has expired!') {
           Alert.alert(
             'Session Expired',
             'Your session has expired. Please log out and log in again.',
             [{ text: 'OK', onPress: () => signOut() }]
           );
-          return;
+        } else {
+          throw new Error(data.message || 'Failed to get response');
         }
-        throw new Error(result.message || 'Failed to get response');
+        return;
       }
 
-      const botMessage = { sender: 'bot', text: result.response };
-      setMessages(prev => [...prev, botMessage]);
+      setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', 'Failed to send message');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#1e1e1e' : '#f5f5f5' }}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={insets.top}
-      >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item, index) => index.toString()}
-          contentContainerStyle={[styles.messagesContainer, { 
-            paddingBottom: insets.bottom + 60 
-          }]}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListFooterComponent={loading ? <TypingIndicator isDarkMode={isDarkMode} /> : null}
-          renderItem={({ item }) => (
-            <View style={[
-              styles.messageBubble,
-              item.sender === 'bot' 
-                ? [styles.botBubble, isDarkMode && styles.botBubbleDark]
-                : [styles.userBubble, isDarkMode && styles.userBubbleDark]
-            ]}>
-              <Markdown style={isDarkMode ? markdownDarkStyles : markdownLightStyles}>
-                {item.text}
-              </Markdown>
-            </View>
-          )}
-        />
+    <ThemedView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={styles.headerTitle}>
+          Scholar Assistant
+        </ThemedText>
+        <View style={{ width: 24 }} />
+      </View>
 
-        <View style={[
-          styles.inputContainer,
-          isDarkMode && styles.inputContainerDark,
-          { 
-            paddingBottom: insets.bottom + 20,
-            marginBottom: Platform.OS === 'android' ? -16 : 0
-          }
-        ]}>
+      {/* Messages */}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        keyExtractor={(_, index) => index.toString()}
+        contentContainerStyle={styles.messagesContainer}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        renderItem={({ item }) => (
+          <View style={[
+            styles.messageBubble,
+            item.sender === 'user' ? styles.userBubble : styles.botBubble,
+            isDark && (item.sender === 'user' ? styles.userBubbleDark : styles.botBubbleDark)
+          ]}>
+            <ThemedText type="body" style={styles.messageText}>
+              {item.text}
+            </ThemedText>
+          </View>
+        )}
+        ListFooterComponent={loading ? <TypingIndicator isDark={isDark} /> : null}
+      />
+
+      {/* Input area moved above the bottom tab navigator */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={20} // Adjust this value if needed
+      >
+        <View style={styles.inputContainer}>
           <TextInput
             style={[
-              styles.textInput,
-              isDarkMode && styles.textInputDark,
-              { maxHeight: 120 }
+              styles.input,
+              isDark ? styles.inputDark : styles.inputLight
             ]}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type your message..."
-            placeholderTextColor={isDarkMode ? '#888' : '#999'}
+            placeholder="Ask me anything..."
+            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+            value={input}
+            onChangeText={setInput}
             multiline
+            maxLength={1000}
             editable={!loading}
           />
-
           <TouchableOpacity
-            style={[styles.sendButton, isDarkMode && styles.sendButtonDark]}
+            style={[
+              styles.sendButton,
+              isDark ? styles.buttonDark : styles.buttonLight,
+              (!input.trim() || loading) && styles.buttonDisabled
+            ]}
             onPress={handleSend}
-            disabled={loading}
+            disabled={!input.trim() || loading}
           >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color="#fff" 
-            />
+            <Send size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    
+    padding: 16,
+    paddingTop: 60
   },
-  messagesContainer: {
-    paddingTop: 16,
-    paddingHorizontal: 8,
-  },
-  messageBubble: {
-    padding: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    marginBottom: 12,
-    maxWidth: '80%',
-  },
-  botBubble: {
-    backgroundColor: '#e0e0e0',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-  },  
-  userBubble: {
-    backgroundColor: '#007AFF',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-  },
-  botBubbleDark: {
-    backgroundColor: '#1c1c1e',
-  },
-  userBubbleDark: {
-    backgroundColor: '#0A84FF',
-  },
-  inputContainer: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingTop: 8,
-    backgroundColor: 'transparent',
+    justifyContent: 'space-between',
+    marginBottom: 24
   },
-  inputContainerDark: {
-    backgroundColor: 'transparent',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600'
   },
-  textInput: {
-    flex: 1,
+  messagesContainer: {
+    paddingBottom: 16
+  },
+  messageBubble: {
+    maxWidth: '80%',
     padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    borderRadius: 16,
+    marginBottom: 8
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#4F46E5',
+    borderBottomRightRadius: 4
+  },
+  botBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    borderBottomLeftRadius: 4
+  },
+  userBubbleDark: {
+    backgroundColor: '#6366F1'
+  },
+  botBubbleDark: {
+    backgroundColor: '#374151'
+  },
+  messageText: {
     fontSize: 16,
-    lineHeight: 20,
-  },
-  textInputDark: {
-    backgroundColor: '#1c1c1e',
-    color: '#fff',
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDark: {
-    backgroundColor: '#0A84FF',
+    lineHeight: 24
   },
   typingContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    gap: 4
+  },
+  typingContainerLight: {
+    backgroundColor: '#F3F4F6'
+  },
+  typingContainerDark: {
+    backgroundColor: '#374151'
   },
   typingDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#666',
+    borderRadius: 4
+  },
+  typingDotLight: {
+    backgroundColor: '#6B7280'
   },
   typingDotDark: {
-    backgroundColor: '#999',
+    backgroundColor: '#9CA3AF'
   },
-});
-
-const markdownBaseStyles = {
-  body: { fontSize: 16, lineHeight: 22 },
-  heading1: { fontSize: 24, fontWeight: 'bold', marginVertical: 8 },
-  heading2: { fontSize: 20, fontWeight: '600', marginVertical: 6 },
-  strong: { fontWeight: 'bold' },
-  em: { fontStyle: 'italic' },
-  link: { textDecorationLine: 'underline' },
-  paragraph: { marginVertical: 4 },
-};
-
-const markdownLightStyles = StyleSheet.create({
-  ...markdownBaseStyles,
-  body: { ...markdownBaseStyles.body, color: '#333' },
-  link: { ...markdownBaseStyles.link, color: '#007AFF' },
-});
-
-const markdownDarkStyles = StyleSheet.create({
-  ...markdownBaseStyles,
-  body: { ...markdownBaseStyles.body, color: '#fff' },
-  link: { ...markdownBaseStyles.link, color: '#0A84FF' },
+  inputContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 12,
+    marginBottom: 80 // extra spacing above tab navigator if needed
+  },
+  input: {
+    flex: 1,
+    minHeight: 50,
+    maxHeight: 100,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16
+  },
+  inputLight: {
+    backgroundColor: '#F3F4F6',
+    color: '#1F2937'
+  },
+  inputDark: {
+    backgroundColor: '#374151',
+    color: '#F9FAFB'
+  },
+  sendButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  buttonLight: {
+    backgroundColor: '#4F46E5'
+  },
+  buttonDark: {
+    backgroundColor: '#6366F1'
+  },
+  buttonDisabled: {
+    opacity: 0.5
+  }
 });

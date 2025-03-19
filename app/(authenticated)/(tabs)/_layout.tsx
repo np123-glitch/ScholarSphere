@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -12,6 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons'; // Importing MaterialIcons
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const [onboarding, isOnboarded] = useState('');
 
   return (
     <Tabs
