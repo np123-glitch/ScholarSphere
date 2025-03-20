@@ -464,7 +464,7 @@ def get_files(subject):
         {"name": file, "url": f"http://scholarsphere.anythingnew.today/documents/{subject}/{file}"}
         for file in os.listdir(documents_path)
     ]
-
+    print(jsonify(files))
     return jsonify(files), 200
 
 
