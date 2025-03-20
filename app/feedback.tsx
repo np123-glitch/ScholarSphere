@@ -1,6 +1,4 @@
-// src/screens/FeedbackPage.tsx
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
@@ -10,6 +8,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
@@ -17,24 +17,51 @@ import { useAuthSession } from '@/components/AuthProvider';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Send, MessageSquare, Star, ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import Config from '@/components/Config';
 
 interface FeedbackResponse {
   message: string;
-  // Add other fields based on your API response
 }
+
+type FeedbackType = 'general' | 'bug' | 'feature' | 'content';
 
 export default function FeedbackPage() {
   const router = useRouter();
-  const systemColorScheme = useColorScheme() || 'light';
-  const isDarkMode = systemColorScheme === 'dark';
+  const isDark = useColorScheme() === 'dark';
   const { token } = useAuthSession();
 
   const [feedback, setFeedback] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedType, setSelectedType] = useState<FeedbackType>('general');
+  const [rating, setRating] = useState<number>(0);
 
-  const apiUrl = Config.API_BASE_URL;
+  // Animation values
+  const fadeAnim = new Animated.Value(0);
+  const slideAnim = new Animated.Value(50);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const feedbackTypes: { type: FeedbackType; label: string; icon: any }[] = [
+    { type: 'general', label: 'General', icon: MessageSquare },
+    { type: 'bug', label: 'Bug Report', icon: ThumbsDown },
+    { type: 'feature', label: 'Feature Request', icon: Star },
+    { type: 'content', label: 'Content', icon: ThumbsUp },
+  ];
 
   const submitFeedback = async () => {
     if (feedback.trim() === '') {
@@ -46,36 +73,65 @@ export default function FeedbackPage() {
       setSubmitting(true);
 
       const response = await axios.post<FeedbackResponse>(
-        `${apiUrl}/feedback`,
-        { feedback: feedback.trim() },
+        `${Config.API_BASE_URL}/feedback`,
+        {
+          feedback: feedback.trim(),
+          type: selectedType,
+          rating,
+        },
         {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token.current}`, // Include JWT
           },
         }
       );
 
-      console.log('Feedback Submitted:', response.data);
-      Alert.alert('Thank you for your feedback!', response.data.message);
-      setFeedback('');
-      router.back(); // Navigate back after successful submission
-    } catch (error: any) {
-      console.error('Error submitting feedback:', error);
       Alert.alert(
-                  'Session Expired',
-                  'Your session has expired. Please log out and log in again.',
-                  [
-                    {
-                      text: 'OK',
-                      
-                    },
-                  ]
-                );
+        'Thank You! 🎉',
+        'Your feedback helps us improve ScholarSphere for everyone.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to submit feedback. Please try again later.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const AnimatedTypeButton = ({
+    type,
+    label,
+    icon: Icon,
+  }: {
+    type: FeedbackType;
+    label: string;
+    icon: any;
+  }) => {
+    const isSelected = selectedType === type;
+    const iconColor = isSelected ? '#fff' : isDark ? '#9CA3AF' : '#6B7280';
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.typeButton,
+          isDark ? styles.typeButtonDark : styles.typeButtonLight,
+          isSelected && styles.typeButtonSelected,
+        ]}
+        onPress={() => setSelectedType(type)}
+      >
+        <Icon size={20} color={iconColor} />
+        <ThemedText
+          type="body"
+          style={[
+            styles.typeButtonText,
+            isSelected && styles.typeButtonTextSelected,
+          ]}
+        >
+          {label}
+        </ThemedText>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -86,184 +142,259 @@ export default function FeedbackPage() {
       <ThemedView
         style={[
           styles.container,
-          isDarkMode ? styles.containerDark : styles.containerLight,
+          isDark ? styles.containerDark : styles.containerLight,
         ]}
       >
-        {/* Header with Back Icon and Title */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backIcon}
+            style={styles.backButton}
             onPress={() => router.back()}
-            accessibilityLabel="Go Back"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={isDarkMode ? '#fff' : '#000'}
-            />
+            <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
           </TouchableOpacity>
-
-          <ThemedText
-            type="title"
-            style={[styles.headerTitle, isDarkMode ? { color: '#fff' } : {}]}
-          >
-            Feedback
+          <ThemedText type="title" style={styles.headerTitle}>
+            Send Feedback
           </ThemedText>
-
-          <View style={styles.placeholder} />
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Feedback Form */}
-        <View style={styles.formContainer}>
-          <ThemedText
-            type="body"
-            style={[styles.label, isDarkMode ? { color: '#fff' } : {}]}
-          >
-            We value your feedback! Let us know how we're doing or how we can improve.
-          </ThemedText>
-          <TextInput
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View
             style={[
-              styles.textInput,
-              isDarkMode ? styles.textInputDark : styles.textInputLight,
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
-            placeholder="Enter your feedback here..."
-            placeholderTextColor={isDarkMode ? '#aaa' : '#555'}
-            multiline
-            numberOfLines={6}
-            value={feedback}
-            onChangeText={setFeedback}
-            editable={!submitting}
-          />
-        </View>
-
-        {/* Submit Button */}
-        <View style={styles.submitButtonContainer}>
-          <TouchableOpacity
-            style={[styles.submitButton, isDarkMode ? styles.submitButtonDark : {}]}
-            onPress={submitFeedback}
-            disabled={submitting}
-            accessibilityLabel="Submit Feedback"
           >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <MaterialIcons name="send" size={24} color="#fff" style={styles.buttonIcon} />
-            )}
-            <ThemedText
-              type="body"
-              style={[styles.submitButtonText, isDarkMode ? { color: '#fff' } : {}]}
+            {/* Feedback Type Selection */}
+            <View style={styles.typeContainer}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                What type of feedback do you have?
+              </ThemedText>
+              <View style={styles.typeButtonsGrid}>
+                {feedbackTypes.map((item) => (
+                  <AnimatedTypeButton
+                    key={item.type}
+                    type={item.type}
+                    label={item.label}
+                    icon={item.icon}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Rating */}
+            <View style={styles.ratingContainer}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                How would you rate your experience?
+              </ThemedText>
+              <View style={styles.starsContainer}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => setRating(star)}
+                    style={styles.starButton}
+                  >
+                    <Star
+                      size={32}
+                      fill={star <= rating ? '#FCD34D' : 'transparent'}
+                      color={
+                        star <= rating
+                          ? '#FCD34D'
+                          : isDark
+                          ? '#4B5563'
+                          : '#D1D5DB'
+                      }
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Feedback Input */}
+            <View style={styles.inputContainer}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Tell us more...
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  isDark ? styles.textInputDark : styles.textInputLight,
+                ]}
+                placeholder="Share your thoughts..."
+                placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+                multiline
+                numberOfLines={6}
+                value={feedback}
+                onChangeText={setFeedback}
+                editable={!submitting}
+              />
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                isDark ? styles.submitButtonDark : styles.submitButtonLight,
+                submitting && styles.submitButtonDisabled,
+              ]}
+              onPress={submitFeedback}
+              disabled={submitting}
             >
-              {submitting ? 'Submitting...' : 'Submit Feedback'}
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Send size={20} color="#fff" />
+                  <ThemedText style={styles.submitButtonText}>
+                    Submit Feedback
+                  </ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  //
-  // ------------------- Main Container -------------------
-  //
   container: {
-    padding: 24,
     flex: 1,
-    justifyContent: 'flex-start',
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   containerLight: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F9FAFB',
   },
   containerDark: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#111827',
   },
-
-  //
-  // ------------------- Header -------------------
-  //
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
+    paddingHorizontal: 20,
     marginBottom: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: '600',
+  },
+  content: {
+    padding: 20,
+    gap: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  typeContainer: {
+    marginBottom: 24,
+  },
+  typeButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  typeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
     flex: 1,
+    minWidth: '45%',
+    borderWidth: 2, // added for more visibility
+    borderColor: 'transparent',
   },
-  backIcon: {
-    padding: 5,
+  typeButtonLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  placeholder: {
-    width: 24, // To balance the header layout
+  typeButtonDark: {
+    backgroundColor: '#1F2937',
   },
-
-  //
-  // ------------------- Form -------------------
-  //
-  formContainer: {
-    marginBottom: 30,
+  typeButtonSelected: {
+    backgroundColor: '#3B82F6', // A bolder color for the selected state
+    borderColor: '#fff', // Make the border visible
   },
-  label: {
-    fontSize: 16,
-    marginBottom: 12,
-    textAlign: 'center',
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
   },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 15,
-    textAlignVertical: 'top',
-    fontSize: 16,
-    height: 150,
-  },
-  textInputLight: {
-    backgroundColor: '#ffffff',
-    borderColor: '#ccc',
-    color: '#000',
-  },
-  textInputDark: {
-    backgroundColor: '#333333',
-    borderColor: '#555',
+  typeButtonTextSelected: {
     color: '#fff',
   },
-
-  //
-  // ------------------- Submit Button -------------------
-  //
-  submitButtonContainer: {
-    alignItems: 'center',
+  ratingContainer: {
+    marginBottom: 24,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  starButton: {
+    padding: 8,
+  },
+  inputContainer: {
+    marginBottom: 24,
+  },
+  textInput: {
+    borderRadius: 12,
+    padding: 16,
+    height: 150,
+    textAlignVertical: 'top',
+    fontSize: 16,
+  },
+  textInputLight: {
+    backgroundColor: '#fff',
+    color: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  textInputDark: {
+    backgroundColor: '#1F2937',
+    color: '#fff',
   },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#28a745',
-    paddingVertical: 14,
-    paddingHorizontal: 30,
+    justifyContent: 'center',
+    padding: 16,
     borderRadius: 12,
-    width: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5, // For Android shadow
-    transitionProperty: 'background-color',
-    transitionDuration: '300ms',
+    gap: 8,
+  },
+  submitButtonLight: {
+    backgroundColor: '#4F46E5',
   },
   submitButtonDark: {
-    backgroundColor: '#1e7e34',
+    backgroundColor: '#6366F1',
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
-  },
-  buttonIcon: {
-    marginLeft: 12,
   },
 });

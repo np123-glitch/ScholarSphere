@@ -20,7 +20,7 @@ import Config from '@/components/Config';
 import { decodeJwt } from '@/utils/decodeJwt';
 
 interface FileMetadata {
-  fileName: string; // from /files/<username> we get { fileName, url }
+  fileName: string; // We'll unify "name" or "fileName" from server
   url: string;
   type?: string;
   size?: string;
@@ -33,7 +33,7 @@ export default function CourseScreen() {
   const isDark = useColorScheme() === 'dark';
   const { signOut, token } = useAuthSession();
 
-  // State for loading indicator, file list, course title, upload in progress, and userName
+  // State
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [courseTitle, setCourseTitle] = useState('');
@@ -68,7 +68,6 @@ export default function CourseScreen() {
   useEffect(() => {
     // If route is "personal" but userName is not set, wait
     if (id === 'personal' && !userName) return;
-
     loadCourseData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, userName]);
@@ -104,8 +103,20 @@ export default function CourseScreen() {
         throw new Error(errorData.message || 'Failed to fetch files');
       }
 
-      const data: FileMetadata[] = await response.json();
-      setFiles(data);
+      // Server might return e.g. [{ fileName, url }] or [{ name, url }]
+      const data = await response.json();
+
+      // 4a) Unify shape to always have fileName + url
+      const unified: FileMetadata[] = data.map((item: any) => ({
+        fileName: item.fileName || item.name || 'Untitled',
+        url: item.url,
+        // If your server also returns type/size/lastModified, handle them here
+        type: item.type || '',
+        size: item.size || '',
+        lastModified: item.lastModified || '',
+      }));
+
+      setFiles(unified);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to load course materials');
     } finally {
@@ -200,13 +211,14 @@ export default function CourseScreen() {
     Linking.openURL(fileUrl);
   };
 
-  // 6) Render the UI
+  // 7) Render the UI
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          {/* Use router.push('/upload') to navigate back to Upload screen */}
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/upload')}>
             <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
           </TouchableOpacity>
         </View>
@@ -218,6 +230,7 @@ export default function CourseScreen() {
         </View>
 
         <View style={styles.headerRight}>
+          {/* Show upload if it's "personal" */}
           {id === 'personal' && (
             <TouchableOpacity
               style={[

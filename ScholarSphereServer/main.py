@@ -307,14 +307,15 @@ def delete_account(current_user):
             return jsonify({'message': 'An error occurred during account deletion. Please try again later or contact support.'}), 500
 
 @app.route('/feedback', methods=['POST'])
-@token_required
-def feedback(current_user):
+def feedback():
     if request.method == 'POST':
         data = request.get_json()
         feedback_text = data.get('feedback', '')
+        rating = data.get('rating', '')
+        typeFeedback = data.get('type', '')
 
         with open('feedback.txt', 'a') as f:
-            f.write(f"Feedback from {current_user}: '{feedback_text}' at {datetime.now()}\n")
+            f.write(f"Feedback: '{feedback_text}' with {rating} and type feedback {typeFeedback} at {datetime.now()}\n")
 
         return jsonify({'message': 'Feedback received'}), 200
 

@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { User, PlayCircle } from 'lucide-react-native';
+import { User, PlayCircle, MessageSquare } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OnboardingOverlay from '@/app/onboarding';
 
@@ -49,19 +49,32 @@ export default function IndexPage() {
     }
   ];
 
-
   return (
     <ThemedView style={[styles.container, isDark ? styles.containerDark : styles.containerLight]}>
-      {/* Header with Profile Icon and Demo Button */}
+      {/* Header with Profile Icon and Feedback Button */}
       <View style={styles.header}>
         <TouchableOpacity
           style={[
-            styles.profileButton,
-            isDark ? styles.profileButtonDark : styles.profileButtonLight
+            styles.headerButton,
+            isDark ? styles.headerButtonDark : styles.headerButtonLight
           ]}
           onPress={() => router.push('/profile')}
         >
           <User size={20} color={isDark ? '#fff' : '#000'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.headerButton,
+            isDark ? styles.headerButtonDark : styles.headerButtonLight,
+            styles.feedbackButton
+          ]}
+          onPress={() => router.push('/feedback')}
+        >
+          <MessageSquare size={20} color={isDark ? '#fff' : '#000'} />
+          <ThemedText type="body" style={styles.feedbackButtonText}>
+            Feedback
+          </ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -121,42 +134,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32
   },
-  demoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8
-  },
-  buttonLight: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4
-  },
-  buttonDark: {
-    backgroundColor: '#1F2937',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4
-  },
-  demoButtonText: {
-    fontSize: 14,
-    fontWeight: '500'
-  },
-  profileButton: {
-    width: 40,
+  headerButton: {
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
-  profileButtonLight: {
+  headerButtonLight: {
     backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -164,13 +149,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4
   },
-  profileButtonDark: {
+  headerButtonDark: {
     backgroundColor: '#1F2937',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4
+  },
+  feedbackButton: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 20,
+  },
+  feedbackButtonText: {
+    fontSize: 14,
+    fontWeight: '500'
   },
   title: {
     fontSize: 32,
