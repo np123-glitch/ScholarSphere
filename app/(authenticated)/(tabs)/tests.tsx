@@ -140,7 +140,7 @@ export default function QuizScreen() {
           <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
         </TouchableOpacity>
         <ThemedText type="title" style={styles.headerTitle}>
-          Quiz Mode
+          Quiz
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>

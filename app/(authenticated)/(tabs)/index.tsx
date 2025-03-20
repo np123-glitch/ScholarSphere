@@ -20,7 +20,7 @@ export default function IndexPage() {
 
   const features = [
     {
-      title: 'Chat Assistant',
+      title: 'ScholarSphere Assistant',
       description: 'Get help with your studies from our AI tutor',
       icon: 'chat',
       route: '/chatarea',
@@ -34,15 +34,15 @@ export default function IndexPage() {
       color: '#7C3AED'
     },
     {
-      title: 'Quiz Mode',
+      title: 'Quiz',
       description: 'Test your knowledge with AI-generated questions',
       icon: 'quiz',
       route: '/tests',
       color: '#2563EB'
     },
     {
-      title: 'Upload Materials',
-      description: 'Upload study materials for AI analysis',
+      title: 'Study Materials',
+      description: 'Upload or use ready-to-go study materials for AI analysis',
       icon: 'upload-file',
       route: '/upload',
       color: '#059669'

@@ -153,7 +153,7 @@ export default function ChatScreen() {
           <ArrowLeft size={24} color={isDark ? '#fff' : '#000'} />
         </TouchableOpacity>
         <ThemedText type="title" style={styles.headerTitle}>
-          Scholar Assistant
+          ScholarSphere Assistant
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>
