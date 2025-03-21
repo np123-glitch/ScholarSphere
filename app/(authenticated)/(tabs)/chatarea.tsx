@@ -10,7 +10,8 @@ import {
   Platform,
   FlatList,
   Animated,
-  Appearance
+  Appearance,
+  Keyboard
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
@@ -18,6 +19,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuthSession } from '@/components/AuthProvider';
 import Config from '@/components/Config';
+import * as Clipboard from 'expo-clipboard';
+import Markdown from 'react-native-markdown-display';
 
 interface Message {
   sender: 'user' | 'bot';
@@ -104,7 +107,17 @@ export default function ChatScreen() {
 
   const baseUrl = Config.API_BASE_URL;
 
+  // Define markdown styles based on dark mode
+  const markdownStyles = {
+    body: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: isDark ? '#d1d5db' : '#000'
+    }
+  };
+
   const handleSend = async () => {
+    Keyboard.dismiss();
     if (!input.trim() || loading) return;
 
     const userMessage = { sender: 'user' as const, text: input.trim() };
@@ -166,15 +179,29 @@ export default function ChatScreen() {
         contentContainerStyle={styles.messagesContainer}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         renderItem={({ item }) => (
-          <View style={[
-            styles.messageBubble,
-            item.sender === 'user' ? styles.userBubble : styles.botBubble,
-            isDark && (item.sender === 'user' ? styles.userBubbleDark : styles.botBubbleDark)
-          ]}>
-            <ThemedText type="body" style={styles.messageText}>
-              {item.text}
-            </ThemedText>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onLongPress={() => {
+              Clipboard.setString(item.text);
+              Alert.alert('Copied to Clipboard', item.text);
+            }}
+          >
+            <View style={[
+              styles.messageBubble,
+              item.sender === 'user' ? styles.userBubble : styles.botBubble,
+              isDark && (item.sender === 'user' ? styles.userBubbleDark : styles.botBubbleDark)
+            ]}>
+              {item.sender === 'bot' ? (
+                <Markdown style={markdownStyles}>
+                  {item.text}
+                </Markdown>
+              ) : (
+                <ThemedText selectable={true} type="body" style={styles.messageText}>
+                  {item.text}
+                </ThemedText>
+              )}
+            </View>
+          </TouchableOpacity>
         )}
         ListFooterComponent={loading ? <TypingIndicator isDark={isDark} /> : null}
       />

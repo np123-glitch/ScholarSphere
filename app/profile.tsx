@@ -24,12 +24,15 @@ import {
   LogOut,
   Trash2,
   ChevronRight,
-  User as UserIcon, // <-- Import "User" icon from lucide-react-native
+  Info
 } from 'lucide-react-native';
 import { decodeJwt } from '@/utils/decodeJwt';
 import Config from '@/components/Config';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Define a default profile picture URL
+const DEFAULT_PROFILE_PIC = 'https://cdn-icons-png.flaticon.com/128/1077/1077114.png';
 
 export default function Profile() {
   const router = useRouter();
@@ -42,22 +45,23 @@ export default function Profile() {
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
 
-  // Load stored profile picture from AsyncStorage
   useEffect(() => {
     const loadProfilePic = async () => {
       try {
         const storedPic = await AsyncStorage.getItem('profilePicture');
         if (storedPic) {
           setProfilePic(storedPic);
+        } else {
+          setProfilePic(DEFAULT_PROFILE_PIC);
         }
       } catch (error) {
         console.error('Failed to load profile picture:', error);
+        setProfilePic(DEFAULT_PROFILE_PIC);
       }
     };
     loadProfilePic();
   }, []);
 
-  // Decode JWT to get user info
   useEffect(() => {
     if (token.current) {
       const decodedToken = decodeJwt(token.current);
@@ -69,7 +73,6 @@ export default function Profile() {
     }
   }, [token]);
 
-  // Pick and upload a new profile picture
   const pickProfilePicture = async () => {
     try {
       setImageLoading(true);
@@ -93,7 +96,6 @@ export default function Profile() {
           type: type,
         } as any);
 
-        // Adjust this to your server's upload endpoint
         const response = await fetch(`${Config.API_BASE_URL}/upload-profile-picture`, {
           method: 'POST',
           headers: {
@@ -104,14 +106,10 @@ export default function Profile() {
         });
         const data = await response.json();
         if (response.ok) {
-          // data.url should be a FULLY QUALIFIED URL accessible by your device
           setProfilePic(data.url);
           await AsyncStorage.setItem('profilePicture', data.url);
         } else {
-          Alert.alert(
-            'Upload Error',
-            data.message || 'Failed to upload profile picture.'
-          );
+          Alert.alert('Upload Error', data.message || 'Failed to upload profile picture.');
         }
       }
     } catch (error) {
@@ -121,12 +119,16 @@ export default function Profile() {
     }
   };
 
-  // Reusable menu button component
   const MenuButton = ({
     icon: Icon,
     title,
     onPress,
     color = isDarkMode ? '#fff' : '#000',
+  }: {
+    icon: any;
+    title: string;
+    onPress: () => void;
+    color?: string;
   }) => (
     <TouchableOpacity
       style={[
@@ -147,7 +149,10 @@ export default function Profile() {
 
   return (
     <ThemedView
-      style={[styles.container, isDarkMode ? styles.containerDark : styles.containerLight]}
+      style={[
+        styles.container,
+        isDarkMode ? styles.containerDark : styles.containerLight,
+      ]}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -169,19 +174,7 @@ export default function Profile() {
             onPress={pickProfilePicture}
             disabled={imageLoading}
           >
-            {profilePic ? (
-              <Image source={{ uri: profilePic }} style={styles.profileImage} />
-            ) : (
-              // If there's no profile pic, show a user icon
-              <View
-                style={[
-                  styles.profileImagePlaceholder,
-                  isDarkMode ? styles.placeholderDark : styles.placeholderLight,
-                ]}
-              >
-                <UserIcon size={48} color={isDarkMode ? '#fff' : '#000'} />
-              </View>
-            )}
+            <Image source={{ uri: profilePic || DEFAULT_PROFILE_PIC }} style={styles.profileImage} />
             <View
               style={[
                 styles.cameraButton,
@@ -199,6 +192,11 @@ export default function Profile() {
 
         {/* Menu Section */}
         <View style={styles.menuSection}>
+          <MenuButton
+            icon={Info}
+            title="About ScholarSphere"
+            onPress={() => router.push('/about')}
+          />
           <MenuButton
             icon={Shield}
             title="Privacy Policy"
@@ -225,7 +223,6 @@ export default function Profile() {
               )
             }
           />
-          {/* Add more MenuButtons if needed */}
         </View>
 
         {/* Add extra space at the bottom of the scroll */}
@@ -334,19 +331,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
   },
-  profileImagePlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderLight: {
-    backgroundColor: '#E5E7EB',
-  },
-  placeholderDark: {
-    backgroundColor: '#374151',
-  },
   cameraButton: {
     position: 'absolute',
     bottom: 0,
@@ -430,5 +414,17 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#EF4444',
+  },
+  appInfo: {
+    marginBottom: 32,
+  },
+  appInfoTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  appInfoText: {
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

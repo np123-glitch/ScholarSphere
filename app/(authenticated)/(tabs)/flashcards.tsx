@@ -5,14 +5,15 @@ import {
   TouchableOpacity,
   TextInput,
   Animated,
-  Easing,
   ActivityIndicator,
   Alert,
   ScrollView,
-  useColorScheme
+  useColorScheme,
+  Keyboard,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Send, RotateCw } from 'lucide-react-native';
+import { ArrowLeft, RotateCw } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuthSession } from '@/components/AuthProvider';
@@ -41,14 +42,28 @@ export default function FlashcardsScreen() {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [savedFlashcards, setSavedFlashcards] = useState<FlashcardSet[]>([]);
-  const [selectedSavedSet, setSelectedSavedSet] = useState<FlashcardSet | null>(null);
-
-  // Animation states
+  
+  // Animation states for flip
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
 
   const baseUrl = Config.API_BASE_URL;
+
+  // Load saved flashcard sets from AsyncStorage on mount
+  useEffect(() => {
+    const loadSavedSets = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('savedFlashcardSets');
+        if (stored) {
+          setSavedFlashcards(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.error('Failed to load saved flashcard sets:', err);
+      }
+    };
+    loadSavedSets();
+  }, []);
 
   const flipCard = () => {
     if (isFlipping) return;
@@ -88,6 +103,9 @@ export default function FlashcardsScreen() {
   };
 
   const handleGenerate = async () => {
+    // Dismiss keyboard when generate is clicked
+    Keyboard.dismiss();
+
     if (!topic.trim()) {
       Alert.alert('Validation Error', 'Please enter a topic.');
       return;
@@ -103,7 +121,7 @@ export default function FlashcardsScreen() {
           'Authorization': `Bearer ${token.current}`,
         },
         body: JSON.stringify({
-          message: `Generate ${count} flashcards about '${topic}'. Each flashcard must be on its own line, using the exact format: [question]:[answer]. For example: [What is a tree?]:[A perennial plant with a trunk, branches, and leaves]. Do not include any numbering, bullet points, or extra text. Ensure there are no spaces before or after the colon (':'). Remember, these are flashcards so they must be quick and easy to memorize like vocab and short terms and something that is an obvious answer.`,
+          message: `Generate ${count} flashcards about '${topic}'. Each flashcard must be on its own line, using the exact format: [question]:[answer]. For example: [What is a tree?]:[A perennial plant with a trunk, branches, and leaves]. Do not include any numbering, bullet points, or extra text. Ensure there are no spaces before or after the colon (':').`,
         }),
       });
 
@@ -115,16 +133,12 @@ export default function FlashcardsScreen() {
           .map((line) => {
             const trimmed = line.trim();
             if (!trimmed) return null;
-
             const markerIndex = trimmed.indexOf(']:[');
             if (markerIndex === -1) return null;
-
             const questionPart = trimmed.slice(0, markerIndex + 1);
             const answerPart = trimmed.slice(markerIndex + 3);
-
             const question = questionPart.replace(/[\[\]]/g, '').trim();
             const answer = answerPart.replace(/[\[\]]/g, '').trim();
-
             return { question, answer };
           })
           .filter(Boolean) as Flashcard[];
@@ -142,7 +156,10 @@ export default function FlashcardsScreen() {
           flashcards: flashcardsArray,
         };
 
-        setSavedFlashcards(prev => [newSet, ...prev]);
+        // Update state and persist saved sets to AsyncStorage
+        const updatedSavedSets = [newSet, ...savedFlashcards];
+        setSavedFlashcards(updatedSavedSets);
+        await AsyncStorage.setItem('savedFlashcardSets', JSON.stringify(updatedSavedSets));
       } else {
         if (result.message === 'Token has expired!') {
           Alert.alert(
@@ -176,23 +193,39 @@ export default function FlashcardsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Topic Input */}
+      {/* Topic Input and Picker */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={[
-            styles.input,
-            isDark ? styles.inputDark : styles.inputLight
-          ]}
+          style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
           placeholder="Enter topic (e.g., World War II)"
           placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
           value={topic}
           onChangeText={setTopic}
         />
-        <TouchableOpacity 
-          style={[
-            styles.generateButton,
-            isDark ? styles.buttonDark : styles.buttonLight
-          ]}
+        {/* Flashcard Count Picker */}
+        <View style={styles.settingsRow}>
+          <View style={[styles.settingItem, isDark ? styles.settingItemDark : styles.settingItemLight]}>
+            <ThemedText type="body" style={styles.settingLabel}>
+              Number of Flashcards: {count}
+            </ThemedText>
+            <View style={styles.settingControls}>
+              <TouchableOpacity
+                style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
+                onPress={() => setCount(Math.max(1, count - 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>-</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
+                onPress={() => setCount(Math.min(20, count + 1))}
+              >
+                <ThemedText type="body" style={styles.controlText}>+</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.generateButton, isDark ? styles.buttonDark : styles.buttonLight]}
           onPress={handleGenerate}
           disabled={loading}
         >
@@ -209,7 +242,7 @@ export default function FlashcardsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Flashcard */}
+      {/* Flashcard Display */}
       {flashcards.length > 0 && (
         <View style={styles.cardContainer}>
           <ThemedText type="body" style={styles.counter}>
@@ -246,7 +279,7 @@ export default function FlashcardsScreen() {
           </TouchableOpacity>
 
           <View style={styles.navigation}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.navButton,
                 isDark ? styles.buttonDark : styles.buttonLight,
@@ -265,7 +298,7 @@ export default function FlashcardsScreen() {
                 Previous
               </ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.navButton,
                 isDark ? styles.buttonDark : styles.buttonLight,
@@ -288,7 +321,7 @@ export default function FlashcardsScreen() {
         </View>
       )}
 
-      {/* Saved Flashcards */}
+      {/* Saved Flashcard Sets */}
       <ScrollView style={styles.savedSection}>
         <ThemedText type="subtitle" style={styles.savedTitle}>
           Saved Flashcard Sets
@@ -296,10 +329,7 @@ export default function FlashcardsScreen() {
         {savedFlashcards.map((set) => (
           <TouchableOpacity
             key={set.id}
-            style={[
-              styles.savedSetItem,
-              isDark ? styles.savedSetItemDark : styles.savedSetItemLight
-            ]}
+            style={[styles.savedSetItem, isDark ? styles.savedSetItemDark : styles.savedSetItemLight]}
             onPress={() => {
               setFlashcards(set.flashcards);
               setCurrentCardIndex(0);
@@ -326,35 +356,77 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    paddingTop: 60
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24
+    marginBottom: 24,
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   inputContainer: {
     gap: 12,
-    marginBottom: 32
+    marginBottom: 32,
   },
   input: {
     height: 50,
     borderRadius: 12,
     paddingHorizontal: 16,
-    fontSize: 16
+    fontSize: 16,
   },
   inputLight: {
     backgroundColor: '#F3F4F6',
-    color: '#1F2937'
+    color: '#1F2937',
   },
   inputDark: {
     backgroundColor: '#374151',
-    color: '#F9FAFB'
+    color: '#F9FAFB',
+  },
+  // ---- Picker / Settings Styles ----
+  settingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  settingItem: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  settingItemLight: {
+    backgroundColor: '#F3F4F6',
+  },
+  settingItemDark: {
+    backgroundColor: '#374151',
+  },
+  settingLabel: {
+    marginBottom: 8,
+    fontSize: 14,
+  },
+  settingControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  controlButton: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlButtonLight: {
+    backgroundColor: '#E5E7EB',
+  },
+  controlButtonDark: {
+    backgroundColor: '#4B5563',
+  },
+  controlText: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   generateButton: {
     height: 50,
@@ -362,35 +434,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8
+    gap: 8,
   },
   buttonLight: {
-    backgroundColor: '#4F46E5'
+    backgroundColor: '#4F46E5',
   },
   buttonDark: {
-    backgroundColor: '#6366F1'
+    backgroundColor: '#6366F1',
   },
   buttonDisabled: {
-    opacity: 0.5
+    opacity: 0.5,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   cardContainer: {
     alignItems: 'center',
-    marginBottom: 24
+    marginBottom: 24,
   },
   counter: {
     marginBottom: 16,
     fontSize: 16,
-    opacity: 0.7
+    opacity: 0.7,
   },
   cardWrapper: {
     width: 300,
     height: 200,
-    marginBottom: 24
+    marginBottom: 24,
   },
   card: {
     width: '100%',
@@ -399,7 +471,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'absolute'
+    position: 'absolute',
   },
   cardLight: {
     backgroundColor: '#fff',
@@ -407,7 +479,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4
+    elevation: 4,
   },
   cardDark: {
     backgroundColor: '#1F2937',
@@ -415,57 +487,58 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 4
+    elevation: 4,
   },
   cardFront: {
-    backfaceVisibility: 'hidden'
+    backfaceVisibility: 'hidden',
   },
   cardBack: {
-    backfaceVisibility: 'hidden'
+    backfaceVisibility: 'hidden',
   },
   cardText: {
     textAlign: 'center',
     fontSize: 18,
-    lineHeight: 24
+    lineHeight: 24,
   },
   navigation: {
     flexDirection: 'row',
     gap: 12,
-    width: '100%'
+    width: '100%',
   },
   navButton: {
     flex: 1,
     height: 50,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   savedSection: {
-    flex: 1
+    flex: 1,
   },
   savedTitle: {
     fontSize: 20,
     fontWeight: '600',
-    marginBottom: 16
+    marginBottom: 16,
   },
   savedSetItem: {
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12
+    marginBottom: 12,
   },
   savedSetItemLight: {
-    backgroundColor: '#F3F4F6'
+    backgroundColor: '#F3F4F6',
   },
   savedSetItemDark: {
-    backgroundColor: '#374151'
+    backgroundColor: '#374151',
   },
   savedSetTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4
+    marginBottom: 4,
   },
   savedSetDetails: {
     fontSize: 14,
-    opacity: 0.7
-  }
+    opacity: 0.7,
+  },
 });
+

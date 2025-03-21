@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   useColorScheme,
+  Keyboard
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -40,6 +41,7 @@ export default function QuizScreen() {
   const baseUrl = Config.API_BASE_URL;
 
   const handleGenerateQuiz = async () => {
+    Keyboard.dismiss();
     if (!topic.trim()) {
       Alert.alert('Error', 'Please enter a topic');
       return;

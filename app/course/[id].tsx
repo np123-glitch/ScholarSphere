@@ -207,7 +207,6 @@ export default function CourseScreen() {
   };
 
   const handleFilePress = (fileUrl: string) => {
-    Alert.alert('Opening File', `File URL: ${fileUrl}`);
     Linking.openURL(fileUrl);
   };
 

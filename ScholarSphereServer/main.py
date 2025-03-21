@@ -237,7 +237,7 @@ def chat(current_user):
     if request.method == 'POST':
         data = request.get_json()
         user_message = data.get('message', '')
-        prompt = f"You are a helpful assistant. A user said: '{user_message}'. Please respond to the user's message directly. Do not provide any sort of reference with your answer. Add emojis to your answer and answer in markdown."
+        prompt = f"You are a helpful assistant. A user said: '{user_message}'. Please respond to the user's message directly. Do not provide any sort of reference with your answer."
         bot_response = send_message(prompt, assistant, current_user)
         print(f"Bot response: {bot_response}")
         return jsonify({'response': bot_response}), 200

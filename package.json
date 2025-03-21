@@ -26,6 +26,7 @@
     "expo": "~52.0.30",
     "expo-blur": "~14.0.3",
     "expo-checkbox": "^4.0.1",
+    "expo-clipboard": "^7.0.1",
     "expo-confetti": "^0.1.206",
     "expo-constants": "~17.0.4",
     "expo-device": "~7.0.2",
