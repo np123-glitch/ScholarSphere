@@ -71,6 +71,35 @@ export default function UploadScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+
+      <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Upload Your Content
+          </ThemedText>
+
+          <TouchableOpacity
+            style={[
+              styles.yourContentTile,
+              isDark ? styles.courseTileDark : styles.courseTileLight,
+            ]}
+            onPress={() => handleCourseSelect('personal')}
+          >
+            <View style={styles.yourContentHeader}>
+              <View style={[styles.iconContainer, { backgroundColor: '#0EA5E9', marginBottom: 0 }]}>
+                <FolderPlus size={32} color="#fff" />
+              </View>
+              <View style={styles.yourContentTextContainer}>
+                <ThemedText type="subtitle" style={[styles.courseTitle, styles.yourContentTitle]}>
+                  Personal Study Materials
+                </ThemedText>
+                <ThemedText type="body" style={styles.courseDescription}>
+                  Upload and manage your own study materials and notes
+                </ThemedText>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+        
         {/* Ready-to-Use Materials Section */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -104,33 +133,7 @@ export default function UploadScreen() {
         
 
         {/* Your Content Section */}
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Your Content
-          </ThemedText>
-
-          <TouchableOpacity
-            style={[
-              styles.yourContentTile,
-              isDark ? styles.courseTileDark : styles.courseTileLight,
-            ]}
-            onPress={() => handleCourseSelect('personal')}
-          >
-            <View style={styles.yourContentHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: '#0EA5E9', marginBottom: 0 }]}>
-                <FolderPlus size={32} color="#fff" />
-              </View>
-              <View style={styles.yourContentTextContainer}>
-                <ThemedText type="subtitle" style={[styles.courseTitle, styles.yourContentTitle]}>
-                  Personal Study Materials
-                </ThemedText>
-                <ThemedText type="body" style={styles.courseDescription}>
-                  Upload and manage your own study materials and notes
-                </ThemedText>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
+        
       </ScrollView>
     </ThemedView>
   );

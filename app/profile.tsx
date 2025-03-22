@@ -85,35 +85,11 @@ export default function Profile() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const localUri = result.assets[0].uri;
-        const filename = localUri.split('/').pop() || 'profile.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image';
-
-        const formData = new FormData();
-        formData.append('file', {
-          uri: localUri,
-          name: filename,
-          type: type,
-        } as any);
-
-        const response = await fetch(`${Config.API_BASE_URL}/upload-profile-picture`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token.current}`,
-          },
-          body: formData,
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setProfilePic(data.url);
-          await AsyncStorage.setItem('profilePicture', data.url);
-        } else {
-          Alert.alert('Upload Error', data.message || 'Failed to upload profile picture.');
-        }
+        setProfilePic(localUri);
+        await AsyncStorage.setItem('profilePicture', localUri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick or upload image.');
+      Alert.alert('Error', 'Failed to pick image.');
     } finally {
       setImageLoading(false);
     }

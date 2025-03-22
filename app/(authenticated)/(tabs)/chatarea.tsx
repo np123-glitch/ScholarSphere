@@ -98,7 +98,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'bot',
-      text: "👋 Hi! I'm your ScholarSphere study assistant based on uploaded content. I can help you understand complex topics, answer questions, and provide explanations. What would you like to learn about today?"
+      text: "👋 Hi! I'm your ScholarSphere assistant. I can help you understand complex topics, answer questions, and provide explanations based on your uploaded content or ready-to-use content. What would you like to learn about today?"
     }
   ]);
   const [input, setInput] = useState('');
@@ -217,7 +217,7 @@ export default function ChatScreen() {
               styles.input,
               isDark ? styles.inputDark : styles.inputLight
             ]}
-            placeholder="Ask me anything..."
+            placeholder="Ask me anything... (e.g., Can you explain World War II?)"
             placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
             value={input}
             onChangeText={setInput}

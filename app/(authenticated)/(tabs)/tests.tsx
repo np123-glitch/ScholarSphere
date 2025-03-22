@@ -8,15 +8,25 @@ import {
   ActivityIndicator,
   Alert,
   useColorScheme,
-  Keyboard
+  Keyboard,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
-import { CheckCircle2, XCircle } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { CircleCheck as CheckCircle2, Circle as XCircle } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuthSession } from '@/components/AuthProvider';
 import Config from '@/components/Config';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 interface TestQuestion {
   question: string;
@@ -37,8 +47,14 @@ export default function QuizScreen() {
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
   const [loading, setLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isInputExpanded, setIsInputExpanded] = useState(true);
 
   const baseUrl = Config.API_BASE_URL;
+
+  const toggleInputSection = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsInputExpanded(!isInputExpanded);
+  };
 
   const handleGenerateQuiz = async () => {
     Keyboard.dismiss();
@@ -80,6 +96,7 @@ export default function QuizScreen() {
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
       setIsSubmitted(false);
+      setIsInputExpanded(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to generate quiz');
     } finally {
@@ -144,116 +161,130 @@ export default function QuizScreen() {
         <ThemedText type="title" style={styles.headerTitle}>
           Quiz
         </ThemedText>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* Quiz Setup */}
-      <View style={styles.setupContainer}>
-        <TextInput
-          style={[
-            styles.input,
-            isDark ? styles.inputDark : styles.inputLight,
-          ]}
-          placeholder="Enter topic (e.g., World War II)"
-          placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-          value={topic}
-          onChangeText={setTopic}
-        />
-
-        <View style={styles.settingsRow}>
-          <View
-            style={[
-              styles.settingItem,
-              isDark ? styles.settingItemDark : styles.settingItemLight,
-            ]}
-          >
-            <ThemedText type="body" style={styles.settingLabel}>
-              Difficulty: {difficulty}/10
-            </ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[
-                  styles.controlButton,
-                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
-                ]}
-                onPress={() => setDifficulty(Math.max(1, difficulty - 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>
-                  -
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.controlButton,
-                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
-                ]}
-                onPress={() => setDifficulty(Math.min(10, difficulty + 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>
-                  +
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.settingItem,
-              isDark ? styles.settingItemDark : styles.settingItemLight,
-            ]}
-          >
-            <ThemedText type="body" style={styles.settingLabel}>
-              Questions: {numQuestions}
-            </ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[
-                  styles.controlButton,
-                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
-                ]}
-                onPress={() => setNumQuestions(Math.max(1, numQuestions - 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>
-                  -
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.controlButton,
-                  isDark ? styles.controlButtonDark : styles.controlButtonLight,
-                ]}
-                onPress={() => setNumQuestions(Math.min(20, numQuestions + 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>
-                  +
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.generateButton,
-            isDark ? styles.buttonDark : styles.buttonLight,
-            loading && styles.buttonDisabled,
-          ]}
-          onPress={handleGenerateQuiz}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
+        <TouchableOpacity onPress={toggleInputSection}>
+          {isInputExpanded ? (
+            <ChevronUp size={24} color={isDark ? '#fff' : '#000'} />
           ) : (
-            <ThemedText type="body" style={styles.buttonText}>
-              Generate Quiz
-            </ThemedText>
+            <ChevronDown size={24} color={isDark ? '#fff' : '#000'} />
           )}
         </TouchableOpacity>
       </View>
 
+      {/* Quiz Setup */}
+      {isInputExpanded && (
+        <View style={styles.setupContainer}>
+          <TextInput
+            style={[
+              styles.input,
+              isDark ? styles.inputDark : styles.inputLight,
+            ]}
+            placeholder="Enter topic (e.g., World War II)"
+            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+            value={topic}
+            onChangeText={setTopic}
+          />
+
+          <View style={styles.settingsRow}>
+            <View
+              style={[
+                styles.settingItem,
+                isDark ? styles.settingItemDark : styles.settingItemLight,
+              ]}
+            >
+              <ThemedText type="body" style={styles.settingLabel}>
+                Difficulty: {difficulty}/10
+              </ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                  ]}
+                  onPress={() => setDifficulty(Math.max(1, difficulty - 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>
+                    -
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                  ]}
+                  onPress={() => setDifficulty(Math.min(10, difficulty + 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>
+                    +
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.settingItem,
+                isDark ? styles.settingItemDark : styles.settingItemLight,
+              ]}
+            >
+              <ThemedText type="body" style={styles.settingLabel}>
+                Questions: {numQuestions}
+              </ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                  ]}
+                  onPress={() => setNumQuestions(Math.max(1, numQuestions - 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>
+                    -
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    isDark ? styles.controlButtonDark : styles.controlButtonLight,
+                  ]}
+                  onPress={() => setNumQuestions(Math.min(20, numQuestions + 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>
+                    +
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.generateButton,
+              isDark ? styles.buttonDark : styles.buttonLight,
+              loading && styles.buttonDisabled,
+            ]}
+            onPress={handleGenerateQuiz}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <ThemedText type="body" style={styles.buttonText}>
+                Generate Quiz
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Quiz Content */}
       {questions.length > 0 && (
-        <ScrollView style={styles.quizContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={[
+            styles.quizContent,
+            !isInputExpanded && styles.quizContentExpanded
+          ]} 
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.questionContainer}>
             <ThemedText type="body" style={styles.questionCounter}>
               Question {currentQuestionIndex + 1} of {questions.length}
@@ -461,6 +492,9 @@ const styles = StyleSheet.create({
   quizContent: {
     flex: 1,
   },
+  quizContentExpanded: {
+    marginTop: 16,
+  },
   questionContainer: {
     gap: 16,
     marginBottom: 24,
@@ -502,7 +536,6 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     fontSize: 16,
-    color: '#fff', // Ensures text is visible on dark backgrounds
   },
   resultIcon: {
     width: 24,

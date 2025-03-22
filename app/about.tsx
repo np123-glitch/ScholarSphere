@@ -25,7 +25,7 @@ export default function AboutScreen() {
           <ArrowLeft size={24} color={isDarkMode ? "#fff" : "#000"} />
         </TouchableOpacity>
         <ThemedText type="title" style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>
-          About ScholarSphere
+          About Me & ScholarSphere
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>
@@ -37,10 +37,10 @@ export default function AboutScreen() {
             <Sparkles size={32} color="#6366F1" />
           </View>
           <ThemedText type="title" style={[styles.visionTitle, isDarkMode && styles.visionTitleDark]}>
-            Our Vision
+            My Vision
           </ThemedText>
           <ThemedText type="body" style={[styles.visionText, isDarkMode && styles.visionTextDark]}>
-            Revolutionizing education through AI-powered learning experiences that adapt to each student's unique needs.
+            I envision transforming education with AI-powered learning experiences that adapt to your unique needs.
           </ThemedText>
         </View>
 
@@ -49,7 +49,7 @@ export default function AboutScreen() {
           <View style={styles.sectionHeader}>
             <Brain size={24} color="#6366F1" />
             <ThemedText type="subtitle" style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Meet the Creator
+              Meet Me
             </ThemedText>
           </View>
           <ThemedText type="title" style={[styles.creatorName, isDarkMode && styles.creatorNameDark]}>
@@ -59,7 +59,7 @@ export default function AboutScreen() {
             Founder & Lead Developer
           </ThemedText>
           <ThemedText type="body" style={[styles.bioText, isDarkMode && styles.bioTextDark]}>
-            Hi! I'm Neel, a 16-year-old developer passionate about revolutionizing education through technology. As a student myself, I understand the challenges of modern learning and created ScholarSphere to address these needs with innovative AI solutions.
+            Hi! I'm Neel. I'm a 16-year-old developer with a passion for revolutionizing education through technology. I understand the challenges of modern learning because I've experienced them firsthand, and that's why I created ScholarSphere—to build innovative AI solutions that truly make a difference.
           </ThemedText>
         </View>
 
@@ -68,11 +68,11 @@ export default function AboutScreen() {
           <View style={styles.sectionHeader}>
             <Rocket size={24} color="#6366F1" />
             <ThemedText type="subtitle" style={[styles.sectionTitle, isDarkMode && styles.sectionTitleDark]}>
-              Our Mission
+              My Mission
             </ThemedText>
           </View>
           <ThemedText type="body" style={[styles.missionText, isDarkMode && styles.missionTextDark]}>
-            ScholarSphere combines cutting-edge AI with proven educational methods to create a more efficient and engaging learning experience. We're committed to making quality education accessible to everyone through innovative technology.
+            My mission with ScholarSphere is to merge cutting-edge AI with proven educational methods to create a more efficient and engaging learning experience. I am dedicated to making quality education accessible to everyone through innovative technology.
           </ThemedText>
         </View>
 

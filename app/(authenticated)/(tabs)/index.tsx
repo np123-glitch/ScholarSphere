@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -12,7 +12,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { User, PlayCircle, MessageSquare } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import OnboardingOverlay from '@/app/onboarding';
+import AppIntro from '@/components/AppIntro';
 
 export default function IndexPage() {
   const router = useRouter();
@@ -85,6 +85,8 @@ export default function IndexPage() {
       <ThemedText type="body" style={styles.description}>
         Your AI-powered learning companion. Choose a feature below to get started.
       </ThemedText>
+
+      
 
       {/* Feature Grid inside a ScrollView */}
       <ScrollView 
@@ -177,6 +179,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 32,
     opacity: 0.8
+  },
+  previewButton: {
+    marginBottom: 20,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  previewButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   featureGrid: {
     flexDirection: 'row',

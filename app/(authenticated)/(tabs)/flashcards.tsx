@@ -10,14 +10,24 @@ import {
   ScrollView,
   useColorScheme,
   Keyboard,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, RotateCw } from 'lucide-react-native';
+import { ArrowLeft, RotateCw, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuthSession } from '@/components/AuthProvider';
 import Config from '@/components/Config';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 interface Flashcard {
   question: string;
@@ -42,6 +52,7 @@ export default function FlashcardsScreen() {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [savedFlashcards, setSavedFlashcards] = useState<FlashcardSet[]>([]);
+  const [isInputExpanded, setIsInputExpanded] = useState(true);
   
   // Animation states for flip
   const [isFlipped, setIsFlipped] = useState(false);
@@ -64,6 +75,11 @@ export default function FlashcardsScreen() {
     };
     loadSavedSets();
   }, []);
+
+  const toggleInputSection = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsInputExpanded(!isInputExpanded);
+  };
 
   const flipCard = () => {
     if (isFlipping) return;
@@ -103,7 +119,6 @@ export default function FlashcardsScreen() {
   };
 
   const handleGenerate = async () => {
-    // Dismiss keyboard when generate is clicked
     Keyboard.dismiss();
 
     if (!topic.trim()) {
@@ -147,6 +162,7 @@ export default function FlashcardsScreen() {
         setCurrentCardIndex(0);
         flipAnim.setValue(0);
         setIsFlipped(false);
+        setIsInputExpanded(false);
 
         const newSet: FlashcardSet = {
           id: Date.now().toString(),
@@ -156,7 +172,6 @@ export default function FlashcardsScreen() {
           flashcards: flashcardsArray,
         };
 
-        // Update state and persist saved sets to AsyncStorage
         const updatedSavedSets = [newSet, ...savedFlashcards];
         setSavedFlashcards(updatedSavedSets);
         await AsyncStorage.setItem('savedFlashcardSets', JSON.stringify(updatedSavedSets));
@@ -180,6 +195,14 @@ export default function FlashcardsScreen() {
 
   const currentCard = flashcards[currentCardIndex] || { question: '', answer: '' };
 
+  const loadSavedSet = (set: FlashcardSet) => {
+    setFlashcards(set.flashcards);
+    setCurrentCardIndex(0);
+    flipAnim.setValue(0);
+    setIsFlipped(false);
+    setIsInputExpanded(false);
+  };
+
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
@@ -190,61 +213,68 @@ export default function FlashcardsScreen() {
         <ThemedText type="title" style={styles.headerTitle}>
           Flashcards
         </ThemedText>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* Topic Input and Picker */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-          placeholder="Enter topic (e.g., World War II)"
-          placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-          value={topic}
-          onChangeText={setTopic}
-        />
-        {/* Flashcard Count Picker */}
-        <View style={styles.settingsRow}>
-          <View style={[styles.settingItem, isDark ? styles.settingItemDark : styles.settingItemLight]}>
-            <ThemedText type="body" style={styles.settingLabel}>
-              Number of Flashcards: {count}
-            </ThemedText>
-            <View style={styles.settingControls}>
-              <TouchableOpacity
-                style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
-                onPress={() => setCount(Math.max(1, count - 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>-</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
-                onPress={() => setCount(Math.min(20, count + 1))}
-              >
-                <ThemedText type="body" style={styles.controlText}>+</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[styles.generateButton, isDark ? styles.buttonDark : styles.buttonLight]}
-          onPress={handleGenerate}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
+        <TouchableOpacity onPress={toggleInputSection}>
+          {isInputExpanded ? (
+            <ChevronUp size={24} color={isDark ? '#fff' : '#000'} />
           ) : (
-            <>
-              <RotateCw size={20} color="#fff" />
-              <ThemedText type="body" style={styles.buttonText}>
-                Generate
-              </ThemedText>
-            </>
+            <ChevronDown size={24} color={isDark ? '#fff' : '#000'} />
           )}
         </TouchableOpacity>
       </View>
 
+      {/* Collapsible Input Section */}
+      {isInputExpanded && (
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+            placeholder="Enter topic (e.g., World War II)"
+            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+            value={topic}
+            onChangeText={setTopic}
+          />
+          <View style={styles.settingsRow}>
+            <View style={[styles.settingItem, isDark ? styles.settingItemDark : styles.settingItemLight]}>
+              <ThemedText type="body" style={styles.settingLabel}>
+                Number of Flashcards: {count}
+              </ThemedText>
+              <View style={styles.settingControls}>
+                <TouchableOpacity
+                  style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
+                  onPress={() => setCount(Math.max(1, count - 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>-</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.controlButton, isDark ? styles.controlButtonDark : styles.controlButtonLight]}
+                  onPress={() => setCount(Math.min(20, count + 1))}
+                >
+                  <ThemedText type="body" style={styles.controlText}>+</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.generateButton, isDark ? styles.buttonDark : styles.buttonLight]}
+            onPress={handleGenerate}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <RotateCw size={20} color="#fff" />
+                <ThemedText type="body" style={styles.buttonText}>
+                  Generate
+                </ThemedText>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Flashcard Display */}
       {flashcards.length > 0 && (
-        <View style={styles.cardContainer}>
+        <View style={[styles.cardContainer, !isInputExpanded && styles.cardContainerExpanded]}>
           <ThemedText type="body" style={styles.counter}>
             Card {currentCardIndex + 1} of {flashcards.length}
           </ThemedText>
@@ -322,7 +352,7 @@ export default function FlashcardsScreen() {
       )}
 
       {/* Saved Flashcard Sets */}
-      <ScrollView style={styles.savedSection}>
+      <ScrollView style={[styles.savedSection, !isInputExpanded && styles.savedSectionExpanded]}>
         <ThemedText type="subtitle" style={styles.savedTitle}>
           Saved Flashcard Sets
         </ThemedText>
@@ -330,12 +360,7 @@ export default function FlashcardsScreen() {
           <TouchableOpacity
             key={set.id}
             style={[styles.savedSetItem, isDark ? styles.savedSetItemDark : styles.savedSetItemLight]}
-            onPress={() => {
-              setFlashcards(set.flashcards);
-              setCurrentCardIndex(0);
-              flipAnim.setValue(0);
-              setIsFlipped(false);
-            }}
+            onPress={() => loadSavedSet(set)}
           >
             <View>
               <ThemedText type="body" style={styles.savedSetTitle}>
@@ -386,7 +411,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     color: '#F9FAFB',
   },
-  // ---- Picker / Settings Styles ----
   settingsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -454,6 +478,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  cardContainerExpanded: {
+    marginTop: 16,
+  },
   counter: {
     marginBottom: 16,
     fontSize: 16,
@@ -515,6 +542,9 @@ const styles = StyleSheet.create({
   savedSection: {
     flex: 1,
   },
+  savedSectionExpanded: {
+    marginTop: -8,
+  },
   savedTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -541,4 +571,3 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-

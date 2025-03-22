@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert, useColorScheme } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  Button, 
+  StyleSheet, 
+  ActivityIndicator, 
+  Alert, 
+  Keyboard, 
+  useColorScheme, 
+  TouchableWithoutFeedback 
+} from 'react-native';
 import { useAuthSession } from '@/components/AuthProvider';
 import { useRouter } from 'expo-router';
 import { TouchableOpacity } from 'react-native';
@@ -42,57 +53,59 @@ const RegisterScreen = () => {
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Text style={[styles.title, isDarkMode && styles.titleDark]}>Register for ScholarSphere</Text>
-      <TextInput
-        style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Username"
-        placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Name"
-        placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
-        value={realname}
-        onChangeText={setRealName}
-      />
-      <TextInput
-        style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Email"
-        placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Password"
-        placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={[styles.input, isDarkMode && styles.inputDark]}
-        placeholder="Confirm Password"
-        placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
-      {loading ? (
-        <ActivityIndicator size="large" color="#007bff" />
-      ) : (
-        <Button title="Register" onPress={handleRegister} color="#007bff" />
-      )}
-      <TouchableOpacity onPress={handleLoginRedirect} style={styles.signupContainer}>
-        <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>Already have an accout? Login here.</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={[styles.container, isDarkMode && styles.containerDark]}>
+        <Text style={[styles.title, isDarkMode && styles.titleDark]}>Register for ScholarSphere</Text>
+        <TextInput
+          style={[styles.input, isDarkMode && styles.inputDark]}
+          placeholder="Username"
+          placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[styles.input, isDarkMode && styles.inputDark]}
+          placeholder="Name"
+          placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
+          value={realname}
+          onChangeText={setRealName}
+        />
+        <TextInput
+          style={[styles.input, isDarkMode && styles.inputDark]}
+          placeholder="Email"
+          placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <TextInput
+          style={[styles.input, isDarkMode && styles.inputDark]}
+          placeholder="Password"
+          placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <TextInput
+          style={[styles.input, isDarkMode && styles.inputDark]}
+          placeholder="Confirm Password"
+          placeholderTextColor={isDarkMode ? '#ccc' : '#666'}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+        />
+        {loading ? (
+          <ActivityIndicator size="large" color="#007bff" />
+        ) : (
+          <Button title="Register" onPress={handleRegister} color="#007bff" />
+        )}
+        <TouchableOpacity onPress={handleLoginRedirect} style={styles.signupContainer}>
+          <Text style={[styles.signupText, isDarkMode && styles.signupTextDark]}>Already have an accout? Login here.</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 

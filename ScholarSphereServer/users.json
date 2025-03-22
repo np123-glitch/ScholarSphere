@@ -22,5 +22,13 @@
             "user"
         ],
         "realname": "testing"
+    },
+    "tata": {
+        "password": "scrypt:32768:8:1$b2WrXuOqsyrPtPjc$400a4a0020cc6fac3dd0921526d674f95950daf3f06505c0acbca398f79ae5c6cc13ceffb67c20c5e1075ac240476bbad8b18b8b5266ef767fc4fb31a0c24510",
+        "email": "tata",
+        "roles": [
+            "user"
+        ],
+        "realname": "tata"
     }
 }

@@ -2,9 +2,8 @@ import React from 'react';
 import { StyleSheet, View, useColorScheme, useWindowDimensions } from 'react-native';
 import AppIntroSlider from 'react-native-app-intro-slider';
 import { MessageSquare, BookOpen, Brain, Upload } from 'lucide-react-native';
-import { ThemedText } from '@/components/ThemedText';
+import { ThemedText } from './ThemedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 
 interface Slide {
   key: string;
@@ -17,7 +16,7 @@ interface Slide {
 const slides: Slide[] = [
   {
     key: 'chat',
-    title: 'ScholarSphere Assistant',
+    title: 'AI Chat Assistant',
     text: 'Get instant help with your studies from our intelligent AI tutor. Ask questions, get explanations, and deepen your understanding.',
     icon: MessageSquare,
     backgroundColor: '#4F46E5',
@@ -45,15 +44,18 @@ const slides: Slide[] = [
   },
 ];
 
-export default function AppIntroScreen() {
+interface AppIntroProps {
+  onDone: () => void;
+}
+
+export default function AppIntro({ onDone }: AppIntroProps) {
   const isDark = useColorScheme() === 'dark';
-  const { height } = useWindowDimensions();
-  const router = useRouter();
+  const { width, height } = useWindowDimensions();
 
   const handleDone = async () => {
     try {
       await AsyncStorage.setItem('onboardingComplete', 'true');
-      router.back();
+      onDone();
     } catch (error) {
       console.error('Error saving onboarding status:', error);
     }
@@ -85,8 +87,8 @@ export default function AppIntroScreen() {
         renderItem={renderItem}
         onDone={handleDone}
         showSkipButton
-        // Adjust the paginationStyle to position the buttons above your bottom nav bar.
-        paginationStyle={{ bottom: 100 }}
+        // Move the pagination container upward by adjusting the bottom offset.
+        paginationStyle={{ bottom: 100 }}  // <-- Adjust this value as needed.
         dotStyle={styles.dot}
         activeDotStyle={[styles.dot, styles.activeDot]}
         renderNextButton={() => (
