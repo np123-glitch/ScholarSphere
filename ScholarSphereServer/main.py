@@ -259,7 +259,7 @@ def login():
         user = users.get(loginId)
 
         token_payload = {
-            'iss': 'https://scholarsphere.anythingnew.today',
+            'iss': 'https://scholarsphere.scholarping.com',
             'sub': loginId,
             'exp': datetime.utcnow() + timedelta(hours=1),
             'iat': datetime.utcnow(),
@@ -335,7 +335,7 @@ def list_user_files(current_user, username):
     for fname in os.listdir(user_upload_dir):
         if fname == "pfp":
             continue
-        file_url = f"http://scholarsphere.anythingnew.today/files/{username}/{fname}"
+        file_url = f"http://scholarsphere.scholarping.com/files/{username}/{fname}"
         file_list.append({
             "fileName": fname,
             "url": file_url
@@ -403,7 +403,7 @@ def upload_profile_picture(current_user):
             print(f"Profile picture saved to {filepath}")
 
             # Build a URL for retrieving the profile picture from the client side
-            file_url = f"http://scholarsphere.anythingnew.today/files/{current_user}/pfp/{filename}"
+            file_url = f"http://scholarsphere.scholarping.com/files/{current_user}/pfp/{filename}"
             return jsonify({
                 'message': 'Profile picture uploaded successfully.',
                 'url': file_url,
@@ -461,7 +461,7 @@ def get_files(subject):
         return jsonify([])
 
     files = [
-        {"name": file, "url": f"http://scholarsphere.anythingnew.today/documents/{subject}/{file}"}
+        {"name": file, "url": f"http://scholarsphere.scholarping.com/documents/{subject}/{file}"}
         for file in os.listdir(documents_path)
     ]
     print(jsonify(files))
