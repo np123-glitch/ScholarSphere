@@ -29,12 +29,15 @@
     "android": {
       "permissions": [
         "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.neelprasad.ScholarSphere"
     },
     "splash": {
       "image": "./assets/images/splash.png",
